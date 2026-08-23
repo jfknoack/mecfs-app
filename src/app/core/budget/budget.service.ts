@@ -2,10 +2,12 @@ import { effect, Injectable, signal, untracked } from '@angular/core';
 import {
   collection,
   doc,
+  getDocs,
   onSnapshot,
   runTransaction,
   serverTimestamp,
   Timestamp,
+  writeBatch,
   type DocumentData,
   type QueryDocumentSnapshot,
   type Unsubscribe,
@@ -213,6 +215,21 @@ export class BudgetService {
     });
 
     return yearMonth;
+  }
+
+  async deleteMonth(yearMonth: string): Promise<void> {
+    this.requireAdmin();
+    const monthRef = doc(firebaseDb(), 'budgetMonths', yearMonth);
+    const entriesSnap = await getDocs(collection(firebaseDb(), 'budgetMonths', yearMonth, 'entries'));
+    const refs = [...entriesSnap.docs.map((item) => item.ref), monthRef];
+
+    for (let index = 0; index < refs.length; index += 450) {
+      const batch = writeBatch(firebaseDb());
+      for (const ref of refs.slice(index, index + 450)) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
   }
 
   async addEntry(input: CreateBudgetEntryInput): Promise<void> {

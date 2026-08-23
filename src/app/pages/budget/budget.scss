@@ -43,6 +43,11 @@
     color: var(--mat-sys-primary);
     cursor: pointer;
     font-size: 1.2rem;
+    flex: 0 0 auto;
+
+    &--danger {
+      color: var(--mat-sys-error);
+    }
   }
 
   &__year-nav {
@@ -151,13 +156,12 @@
 
   &__card {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     align-items: flex-start;
     padding: 16px;
     border-radius: 12px;
     background: var(--mat-sys-surface-container);
     color: inherit;
-    text-decoration: none;
     border: 1px solid transparent;
 
     &--current {
@@ -165,6 +169,16 @@
       background: var(--mat-sys-primary-container);
       color: var(--mat-sys-on-primary-container);
     }
+  }
+
+  &__card-main {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    flex: 1 1 auto;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
   }
 
   &__card-icon {

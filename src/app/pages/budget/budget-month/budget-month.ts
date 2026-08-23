@@ -6,7 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Auth } from '../../../core/auth/auth';
 import {
   budgetIconClass,
@@ -47,6 +47,7 @@ export class BudgetMonth {
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
 
   protected readonly iconClass = budgetIconClass;
@@ -215,6 +216,25 @@ export class BudgetMonth {
       await this.budget.deleteEntry(entry);
     } catch {
       this.snackBar.open('Buchung konnte nicht gelöscht werden.', 'OK', { duration: 4000 });
+    }
+  }
+
+  protected async deleteMonth(): Promise<void> {
+    if (!this.isAdmin() || !this.valid || !this.monthExists()) {
+      return;
+    }
+    const confirmed = window.confirm(
+      `${this.monthTitle} wirklich löschen? Alle Buchungen in diesem Monat gehen verloren.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await this.budget.deleteMonth(toYearMonth(this.year, this.month));
+      this.snackBar.open(`${this.monthTitle} gelöscht.`, 'OK', { duration: 2500 });
+      await this.router.navigateByUrl('/budget');
+    } catch {
+      this.snackBar.open('Monat konnte nicht gelöscht werden.', 'OK', { duration: 4000 });
     }
   }
 

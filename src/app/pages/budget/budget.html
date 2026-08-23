@@ -77,38 +77,47 @@
       <p class="budget__empty">Monate werden geladen…</p>
     } @else {
       @for (card of yearCards(); track card.yearMonth) {
-        <a
-          class="budget__card"
-          [class.budget__card--current]="card.isCurrent"
-          [routerLink]="['/budget', selectedYear(), card.month]"
-        >
-          <i class="budget__card-icon" [ngClass]="iconClass('calendar-days')" aria-hidden="true"></i>
-          <div class="budget__card-body">
-            <div class="budget__card-head">
-              <h2 class="budget__card-title">{{ card.label }}</h2>
-              @if (card.isCurrent) {
-                <span class="budget__card-badge">Aktuell</span>
-              }
+        <article class="budget__card" [class.budget__card--current]="card.isCurrent">
+          <a class="budget__card-main" [routerLink]="['/budget', selectedYear(), card.month]">
+            <i class="budget__card-icon" [ngClass]="iconClass('calendar-days')" aria-hidden="true"></i>
+            <div class="budget__card-body">
+              <div class="budget__card-head">
+                <h2 class="budget__card-title">{{ card.label }}</h2>
+                @if (card.isCurrent) {
+                  <span class="budget__card-badge">Aktuell</span>
+                }
+              </div>
+              <p
+                class="budget__card-balance"
+                [class.budget__card-balance--positive]="card.balance >= 0"
+                [class.budget__card-balance--negative]="card.balance < 0"
+              >
+                {{ formatEuro(card.balance) }}
+              </p>
+              <p class="budget__card-meta">
+                {{ formatEuro(card.income) }} Einkommen · {{ formatEuro(card.expense) }} Ausgaben
+              </p>
+              <div class="budget__bar" [attr.aria-label]="'Ausgabenanteil ' + card.usage + ' %'">
+                <span
+                  class="budget__bar-fill"
+                  [class.budget__bar-fill--high]="card.usage >= 80"
+                  [style.width.%]="card.usage"
+                ></span>
+              </div>
             </div>
-            <p
-              class="budget__card-balance"
-              [class.budget__card-balance--positive]="card.balance >= 0"
-              [class.budget__card-balance--negative]="card.balance < 0"
+          </a>
+          @if (isAdmin()) {
+            <button
+              class="budget__icon-btn budget__icon-btn--danger"
+              type="button"
+              title="Monat löschen"
+              aria-label="Monat löschen"
+              (click)="deleteMonth(card)"
             >
-              {{ formatEuro(card.balance) }}
-            </p>
-            <p class="budget__card-meta">
-              {{ formatEuro(card.income) }} Einkommen · {{ formatEuro(card.expense) }} Ausgaben
-            </p>
-            <div class="budget__bar" [attr.aria-label]="'Ausgabenanteil ' + card.usage + ' %'">
-              <span
-                class="budget__bar-fill"
-                [class.budget__bar-fill--high]="card.usage >= 80"
-                [style.width.%]="card.usage"
-              ></span>
-            </div>
-          </div>
-        </a>
+              <i class="budget__icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+            </button>
+          }
+        </article>
       } @empty {
         <p class="budget__empty">Keine Monate in diesem Jahr.</p>
       }

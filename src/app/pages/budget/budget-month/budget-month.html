@@ -24,6 +24,15 @@
               >
                 <i class="budget-month__action-icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
               </button>
+              <button
+                class="budget-month__icon-btn budget-month__icon-btn--danger"
+                type="button"
+                title="Monat löschen"
+                aria-label="Monat löschen"
+                (click)="deleteMonth()"
+              >
+                <i class="budget-month__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+              </button>
             }
           </div>
           <p class="budget-month__subtitle">Einkommen, Spenden und Ausgaben für diesen Monat.</p>

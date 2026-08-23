@@ -14,22 +14,20 @@ jobs:
         run: |
           mkdir -p src/app src/environments
           for f in main.ts styles.scss index.html; do
-            if [ -f "$f" ]; then
+            if [ -f "$f" ] && [ ! -f "src/$f" ]; then
               cp -f "$f" "src/$f"
             fi
           done
-          if [ -d environments ]; then
+          if [ -d environments ] && [ ! -f src/environments/environment.ts ]; then
             cp -a environments/. src/environments/
           fi
-          if [ -d app ]; then
+          if [ -d app ] && [ ! -f src/app/app.config.ts ]; then
             cp -a app/. src/app/
           fi
           test -f src/main.ts
           test -f src/styles.scss
           test -f src/environments/environment.ts
-          test -d src/app/pages/routinen
-          test -d src/app/pages/rezepte
-          test -d src/app/pages/pacing
+          test -d src/app/pages
       - uses: actions/setup-node@v5
         with:
           node-version: 22

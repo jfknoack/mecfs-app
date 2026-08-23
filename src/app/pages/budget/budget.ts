@@ -172,4 +172,26 @@ export class Budget {
     this.createYear.set(year);
     this.form.reset({ year, month: months[0] ?? 0 });
   }
+
+  protected async deleteMonth(card: {
+    month: number;
+    label: string;
+    yearMonth: string;
+  }): Promise<void> {
+    if (!this.isAdmin()) {
+      return;
+    }
+    const confirmed = window.confirm(
+      `${card.label} ${this.selectedYear()} wirklich löschen? Alle Buchungen in diesem Monat gehen verloren.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await this.budget.deleteMonth(card.yearMonth);
+      this.snackBar.open(`${card.label} ${this.selectedYear()} gelöscht.`, 'OK', { duration: 2500 });
+    } catch {
+      this.snackBar.open('Monat konnte nicht gelöscht werden.', 'OK', { duration: 4000 });
+    }
+  }
 }
