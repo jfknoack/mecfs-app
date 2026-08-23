@@ -1,0 +1,93 @@
+<section class="admin">
+  <header class="admin__header">
+    <div class="admin__heading">
+      <h1 class="admin__title">{{ title }}</h1>
+      <button
+        class="admin__icon-btn"
+        type="button"
+        title="Benutzer anlegen"
+        aria-label="Benutzer anlegen"
+        (click)="toggleCreate()"
+      >
+        <i class="admin__icon fa-solid fa-plus" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="admin__subtitle">
+      Freigeschaltete Google-Accounts. Rolle gilt beim nächsten Login und in den Sicherheitsregeln.
+    </p>
+  </header>
+
+  @if (showCreate()) {
+    <form class="admin__create" [formGroup]="form" (ngSubmit)="createUser()">
+      <h2 class="admin__create-title">Benutzer anlegen</h2>
+      <mat-form-field appearance="outline">
+        <mat-label>Name</mat-label>
+        <input matInput formControlName="name" maxlength="80" placeholder="z. B. Jonas Noack" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Google-E-Mail</mat-label>
+        <input
+          matInput
+          type="email"
+          formControlName="email"
+          maxlength="80"
+          placeholder="name@gmail.com"
+        />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Rolle</mat-label>
+        <mat-select formControlName="role">
+          <mat-option value="user">User</mat-option>
+          <mat-option value="admin">Admin</mat-option>
+          <mat-option value="patient">Patient</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <div class="admin__create-actions">
+        <button matButton type="button" (click)="showCreate.set(false)">Abbrechen</button>
+        <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+      </div>
+    </form>
+  }
+
+  <div class="admin__list">
+    @if (!usersReady()) {
+      <p class="admin__empty">Benutzer werden geladen…</p>
+    } @else {
+      @for (user of users(); track user.email) {
+        <article class="admin__user">
+          <div class="admin__user-body">
+            <h2 class="admin__user-name">
+              {{ user.name }}
+              @if (isBootstrap(user.email)) {
+                <span class="admin__badge">Bootstrap</span>
+              }
+            </h2>
+            <p class="admin__user-meta">{{ user.email }}</p>
+          </div>
+          <mat-form-field class="admin__role" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Rolle</mat-label>
+            <mat-select
+              [value]="user.role"
+              [disabled]="isBootstrap(user.email)"
+              (selectionChange)="setRole(user.email, $event.value)"
+            >
+              <mat-option value="user">User</mat-option>
+              <mat-option value="admin">Admin</mat-option>
+              <mat-option value="patient">Patient</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <button
+            matButton
+            type="button"
+            [disabled]="isBootstrap(user.email)"
+            (click)="deleteUser(user.email, user.name)"
+          >
+            Entfernen
+          </button>
+        </article>
+      } @empty {
+        <p class="admin__empty">Noch keine Benutzer angelegt.</p>
+      }
+    }
+  </div>
+</section>

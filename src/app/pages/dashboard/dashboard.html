@@ -1,0 +1,192 @@
+<section class="dashboard">
+  <header class="dashboard__header">
+    <h1 class="dashboard__title">{{ title }}</h1>
+    <p class="dashboard__text">Heute abhaken, morgen nur als Vorschau.</p>
+  </header>
+
+  @if (calendarConfigured && !hasCalendarAccess()) {
+    <div class="dashboard__connect">
+      <p class="dashboard__hint">Google Kalender verbinden, damit Termine in den Spalten erscheinen.</p>
+      <button matButton="filled" type="button" [disabled]="connecting()" (click)="connectCalendar()">
+        Google Kalender verbinden
+      </button>
+    </div>
+  }
+
+  <div
+    class="dashboard__filters"
+    [class.dashboard__filters--open]="filtersOpen()"
+  >
+    <button
+      class="dashboard__filters-toggle"
+      type="button"
+      [attr.aria-expanded]="filtersOpen()"
+      (click)="toggleFilters()"
+    >
+      <i
+        class="dashboard__filters-chevron"
+        [class.dashboard__filters-chevron--open]="filtersOpen()"
+        [ngClass]="iconClass('chevron-right')"
+        aria-hidden="true"
+      ></i>
+      <span class="dashboard__filters-title">Filter</span>
+      @if (!filtersOpen()) {
+        <span class="dashboard__filters-summary">{{ filterSummary() }}</span>
+      }
+    </button>
+    @if (filtersOpen()) {
+      <div class="dashboard__filters-body">
+        <div class="dashboard__filters-group">
+          <ul class="dashboard__filters-list">
+            @for (routine of filterRoutines(); track routine.id) {
+              <li class="dashboard__filters-item">
+                <mat-checkbox
+                  [checked]="isRoutineVisible(routine.id)"
+                  (change)="toggleRoutineFilter(routine.id, $event.checked)"
+                >
+                  <span class="dashboard__filters-routine">
+                    <span
+                      class="dashboard__filters-color"
+                      [style.background]="colorHex(routine.color)"
+                      aria-hidden="true"
+                    ></span>
+                    {{ routine.title }}
+                  </span>
+                </mat-checkbox>
+              </li>
+            }
+          </ul>
+        </div>
+        <div class="dashboard__filters-group">
+          <mat-checkbox
+            [checked]="showGoogleEvents()"
+            [disabled]="!calendarConfigured"
+            (change)="toggleGoogleFilter($event.checked)"
+          >
+            Google Termine
+          </mat-checkbox>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="dashboard__columns">
+    <section class="dashboard__column">
+      <header class="dashboard__column-head">
+        <h2 class="dashboard__column-title">Heute</h2>
+        <p class="dashboard__column-meta">{{ todayLabel }}</p>
+      </header>
+      <div class="dashboard__stack">
+        @for (item of todayItems(); track item.kind === 'routine' ? item.card?.id : item.event?.id) {
+          @if (item.kind === 'routine' && item.card; as card) {
+            <ng-container
+              [ngTemplateOutlet]="routineCard"
+              [ngTemplateOutletContext]="{ card, interactive: true }"
+            />
+          } @else if (item.event; as event) {
+            <ng-container [ngTemplateOutlet]="eventCard" [ngTemplateOutletContext]="{ event }" />
+          }
+        } @empty {
+          <p class="dashboard__empty">Heute nichts geplant.</p>
+        }
+      </div>
+    </section>
+
+    <section class="dashboard__column">
+      <header class="dashboard__column-head">
+        <h2 class="dashboard__column-title">Morgen</h2>
+        <p class="dashboard__column-meta">{{ tomorrowLabel }} · nur Vorschau</p>
+      </header>
+      <div class="dashboard__stack">
+        @for (item of tomorrowItems(); track item.kind === 'routine' ? item.card?.id : item.event?.id) {
+          @if (item.kind === 'routine' && item.card; as card) {
+            <ng-container
+              [ngTemplateOutlet]="routineCard"
+              [ngTemplateOutletContext]="{ card, interactive: false }"
+            />
+          } @else if (item.event; as event) {
+            <ng-container [ngTemplateOutlet]="eventCard" [ngTemplateOutletContext]="{ event }" />
+          }
+        } @empty {
+          <p class="dashboard__empty">Morgen nichts geplant.</p>
+        }
+      </div>
+    </section>
+  </div>
+</section>
+
+<ng-template #routineCard let-card="card" let-interactive="interactive">
+  <article
+    class="dashboard__routine"
+    [class.dashboard__routine--none]="card.progress === 'none'"
+    [class.dashboard__routine--partial]="card.progress === 'partial'"
+    [class.dashboard__routine--done]="card.progress === 'done'"
+  >
+    <header class="dashboard__card-head">
+      <i class="dashboard__card-icon" [ngClass]="iconClass('repeat')" aria-hidden="true"></i>
+      <div class="dashboard__card-heading">
+        <a class="dashboard__card-title" [routerLink]="['/routinen', card.routine.id]" [queryParams]="{ date: card.date }">
+          {{ card.title }}
+        </a>
+        <p class="dashboard__card-meta">{{ card.time }}</p>
+      </div>
+    </header>
+    @if (card.groups.length) {
+      <div class="dashboard__groups">
+        @for (group of card.groups; track group.key) {
+          <section class="dashboard__group">
+            <div class="dashboard__group-head">
+              <i
+                class="dashboard__group-icon"
+                [ngClass]="group.kind === 'listEntry' ? listIconClass(group.icon) : iconClass(group.icon)"
+                aria-hidden="true"
+              ></i>
+              <h3 class="dashboard__group-title">{{ group.title }}</h3>
+            </div>
+            <ul class="dashboard__items">
+              @for (item of group.items; track item.id) {
+                <li
+                  class="dashboard__item"
+                  [class.dashboard__item--done]="isItemChecked(card.routine, card.date, item.id)"
+                >
+                  @if (interactive) {
+                    <mat-checkbox
+                      class="dashboard__check"
+                      [checked]="isItemChecked(card.routine, card.date, item.id)"
+                      [aria-label]="'Erledigt: ' + item.text"
+                      (change)="toggleChecked(card, item.id, $event.checked)"
+                    />
+                  }
+                  <div class="dashboard__item-body">
+                    @if (item.kind === 'recipe') {
+                      <a class="dashboard__recipe" [routerLink]="['/rezepte', item.recipeId]">{{ item.text }}</a>
+                    } @else {
+                      <p class="dashboard__item-text">{{ item.text }}</p>
+                    }
+                  </div>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+      </div>
+    } @else {
+      <p class="dashboard__empty">Keine Punkte in dieser Routine.</p>
+    }
+  </article>
+</ng-template>
+
+<ng-template #eventCard let-event="event">
+  <article class="dashboard__event">
+    <i class="dashboard__card-icon" [ngClass]="iconClass('calendar-days')" aria-hidden="true"></i>
+    <div class="dashboard__card-heading">
+      <h3 class="dashboard__event-title">{{ event.title }}</h3>
+      <p class="dashboard__card-meta">
+        {{ calendarEventTimeLabel(event) }}
+        @if (event.location) {
+          · {{ event.location }}
+        }
+      </p>
+    </div>
+  </article>
+</ng-template>

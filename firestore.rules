@@ -1,0 +1,370 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Muss mit environment.bootstrapAdminEmail übereinstimmen.
+    function bootstrapEmail() {
+      return 'jfknoack@gmail.com';
+    }
+
+    function verified() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email.size() > 0
+        && request.auth.token.email_verified == true;
+    }
+
+    function emailKey() {
+      return request.auth.token.email.lower();
+    }
+
+    function isBootstrapAdmin() {
+      return verified() && emailKey() == bootstrapEmail();
+    }
+
+    function invitePath() {
+      return /databases/$(database)/documents/allowedUsers/$(emailKey());
+    }
+
+    function isInvited() {
+      return verified() && exists(invitePath());
+    }
+
+    function inviteRole() {
+      return get(invitePath()).data.role;
+    }
+
+    function hasUserDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isMember() {
+      return hasUserDoc() && (isBootstrapAdmin() || isInvited());
+    }
+
+    function isAdmin() {
+      return isMember() && (isBootstrapAdmin() || inviteRole() == 'admin' || inviteRole() == 'patient');
+    }
+
+    function canAccessPacing() {
+      return isMember() && (isBootstrapAdmin() || inviteRole() == 'patient');
+    }
+
+    function validAllowedUser(emailId) {
+      return request.resource.data.email == emailId
+        && request.resource.data.email == request.resource.data.email.lower()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.role in ['user', 'admin', 'patient'];
+    }
+
+    function validUserDoc(uid) {
+      return request.resource.data.uid == uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == emailKey()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.role in ['user', 'admin', 'patient'];
+    }
+
+    match /allowedUsers/{emailId} {
+      allow read: if isAdmin()
+        || (verified() && emailId == emailKey());
+
+      allow create: if validAllowedUser(emailId) && (
+        isAdmin()
+        || (
+          isBootstrapAdmin()
+          && emailId == bootstrapEmail()
+          && request.resource.data.role == 'admin'
+        )
+      );
+
+      allow update: if isAdmin()
+        && validAllowedUser(emailId)
+        && !(emailId == bootstrapEmail() && request.resource.data.role != 'admin');
+
+      allow delete: if isAdmin() && emailId != bootstrapEmail();
+    }
+
+    match /users/{uid} {
+      allow read: if isAdmin() || (verified() && request.auth.uid == uid);
+
+      allow create: if verified()
+        && request.auth.uid == uid
+        && validUserDoc(uid)
+        && (
+          (isBootstrapAdmin() && request.resource.data.role == 'admin')
+          || (isInvited() && request.resource.data.role == inviteRole())
+        );
+
+      allow update: if (
+        verified()
+        && request.auth.uid == uid
+        && validUserDoc(uid)
+        && (
+          request.resource.data.role == resource.data.role
+          || (isBootstrapAdmin() && request.resource.data.role == 'admin')
+          || (isInvited() && request.resource.data.role == inviteRole())
+        )
+      ) || (
+        isAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.role in ['user', 'admin', 'patient']
+        && !(resource.data.email == bootstrapEmail() && request.resource.data.role != 'admin')
+      );
+
+      allow delete: if isAdmin() && resource.data.email != bootstrapEmail();
+    }
+
+    match /listNames/{nameKey} {
+      allow read: if isMember();
+      allow create: if isAdmin()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.listId is string;
+      allow delete: if isAdmin();
+    }
+
+    match /lists/{listId} {
+      allow read: if isMember();
+      allow create: if isAdmin()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorName is string
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.nameKey is string
+        && request.resource.data.icon is string
+        && request.resource.data.visibility in ['public', 'private'];
+      allow update, delete: if isAdmin();
+
+      match /entries/{entryId} {
+        allow read: if isMember();
+        allow create: if isAdmin()
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500;
+        allow update: if isAdmin()
+          && request.resource.data.authorUid == resource.data.authorUid
+          && request.resource.data.authorName == resource.data.authorName
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500;
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /routines/{routineId} {
+      allow read: if isMember();
+      allow create: if isAdmin()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorName is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.date is string
+        && request.resource.data.date.size() == 10
+        && request.resource.data.timeFrom is string
+        && request.resource.data.timeTo is string
+        && request.resource.data.recurrence in ['once', 'daily', 'weekly']
+        && request.resource.data.weekdays is list
+        && request.resource.data.weekdays.size() <= 7
+        && request.resource.data.visibility in ['public', 'private']
+        && request.resource.data.color in [
+          'magenta',
+          'red',
+          'purple',
+          'indigo',
+          'blue',
+          'teal',
+          'green',
+          'lime',
+          'yellow',
+          'brown',
+          'slate'
+        ]
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 80;
+      allow update: if (
+        isAdmin()
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.date is string
+        && request.resource.data.date.size() == 10
+        && request.resource.data.timeFrom is string
+        && request.resource.data.timeTo is string
+        && request.resource.data.recurrence in ['once', 'daily', 'weekly']
+        && request.resource.data.weekdays is list
+        && request.resource.data.weekdays.size() <= 7
+        && request.resource.data.visibility in ['public', 'private']
+        && request.resource.data.color in [
+          'magenta',
+          'red',
+          'purple',
+          'indigo',
+          'blue',
+          'teal',
+          'green',
+          'lime',
+          'yellow',
+          'brown',
+          'slate'
+        ]
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 80
+      ) || (
+        isMember()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completions', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /recipes/{recipeId} {
+      allow read: if isMember();
+      allow create: if isAdmin()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorName is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 2000
+        && request.resource.data.visibility in ['public', 'private']
+        && request.resource.data.ingredients is list
+        && request.resource.data.ingredients.size() <= 80
+        && request.resource.data.steps is list
+        && request.resource.data.steps.size() <= 40;
+      allow update: if isAdmin()
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 2000
+        && request.resource.data.visibility in ['public', 'private']
+        && request.resource.data.ingredients is list
+        && request.resource.data.ingredients.size() <= 80
+        && request.resource.data.steps is list
+        && request.resource.data.steps.size() <= 40;
+      allow delete: if isAdmin();
+    }
+
+    match /budgetMonths/{monthId} {
+      allow read: if isMember();
+      allow create, update: if isAdmin()
+        && request.resource.data.year is number
+        && request.resource.data.year >= 2020
+        && request.resource.data.year <= 2100
+        && request.resource.data.month is number
+        && request.resource.data.month >= 1
+        && request.resource.data.month <= 12
+        && request.resource.data.yearMonth == monthId
+        && request.resource.data.incomeTotal is number
+        && request.resource.data.expenseTotal is number;
+      allow delete: if isAdmin();
+
+      match /entries/{entryId} {
+        allow read: if isMember();
+        allow create: if isAdmin()
+          && request.resource.data.kind in ['income', 'expense']
+          && request.resource.data.category in [
+            'pflegegeld',
+            'supporter',
+            'sonstiges-einkommen',
+            'medikamente',
+            'anschaffungen',
+            'lebensmittel',
+            'sonstige-ausgaben'
+          ]
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 80
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0
+          && request.resource.data.amount <= 1000000
+          && request.resource.data.icon is string
+          && request.resource.data.note is string
+          && request.resource.data.note.size() <= 300
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.authorName is string;
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /pacingActivityNames/{nameKey} {
+      allow read: if canAccessPacing();
+      allow create: if canAccessPacing()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.activityId is string;
+      allow delete: if canAccessPacing();
+    }
+
+    match /pacingActivities/{activityId} {
+      allow read: if canAccessPacing();
+      allow create: if canAccessPacing()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorName is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.titleKey is string
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 2000;
+      allow update: if canAccessPacing()
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.titleKey is string
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 2000;
+      allow delete: if canAccessPacing();
+    }
+
+    match /pacingLogs/{logId} {
+      allow read: if canAccessPacing();
+      allow create: if canAccessPacing()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorName is string
+        && request.resource.data.date is string
+        && request.resource.data.date.size() == 10
+        && request.resource.data.time is string
+        && request.resource.data.time.size() == 5
+        && request.resource.data.activityId is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 2000
+        && request.resource.data.done is bool
+        && request.resource.data.difficulty is number
+        && request.resource.data.difficulty >= 0
+        && request.resource.data.difficulty <= 10;
+      allow update: if canAccessPacing()
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.date == resource.data.date
+        && request.resource.data.activityId is string
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 80
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 2000
+        && request.resource.data.done is bool
+        && request.resource.data.difficulty is number
+        && request.resource.data.difficulty >= 0
+        && request.resource.data.difficulty <= 10
+        && request.resource.data.time is string
+        && request.resource.data.time.size() == 5;
+      allow delete: if canAccessPacing();
+    }
+  }
+}

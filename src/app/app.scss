@@ -1,0 +1,117 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.app-update {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  font: var(--mat-sys-label-large);
+
+  &__text {
+    flex: 0 1 auto;
+  }
+}
+
+.app-boot {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+
+.app-shell {
+  height: 100%;
+
+  &__sidenav {
+    width: 260px;
+  }
+
+  &__sidenav-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  &__brand {
+    padding: 20px 16px 12px;
+    font: var(--mat-sys-title-large);
+  }
+
+  &__nav-list {
+    flex: 1 1 auto;
+    overflow: auto;
+  }
+
+  &__nav-icon,
+  &__toolbar-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    font-size: 18px;
+  }
+
+  &__spacer {
+    flex: 1 1 auto;
+  }
+
+  &__role {
+    margin-inline-end: 8px;
+    font: var(--mat-sys-label-large);
+    opacity: 0.8;
+  }
+
+  &__dev {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 8px 12px 16px;
+    padding: 4px;
+    border: 1px dashed var(--mat-sys-outline);
+    border-radius: 999px;
+  }
+
+  &__dev-label {
+    padding-inline: 8px 4px;
+    font: var(--mat-sys-label-small);
+    opacity: 0.7;
+  }
+
+  &__dev-btn {
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: var(--mat-sys-label-large);
+
+    &--active {
+      background: var(--mat-sys-primary-container);
+      color: var(--mat-sys-on-primary-container);
+    }
+  }
+
+  &__preview {
+    margin: 0;
+    padding: 8px 16px;
+    background: var(--mat-sys-tertiary-container);
+    color: var(--mat-sys-on-tertiary-container);
+    font: var(--mat-sys-label-large);
+  }
+
+  &__content {
+    min-height: calc(100% - 64px);
+  }
+}

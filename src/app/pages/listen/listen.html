@@ -1,0 +1,84 @@
+<section class="listen">
+  <header class="listen__header">
+    <div class="listen__heading">
+      <h1 class="listen__title">{{ title }}</h1>
+      @if (isAdmin()) {
+        <button
+          class="listen__icon-btn"
+          type="button"
+          title="Listentyp hinzufügen"
+          aria-label="Listentyp hinzufügen"
+          (click)="toggleCreate()"
+        >
+          <i class="listen__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+        </button>
+      }
+    </div>
+    <p class="listen__subtitle">
+      Gemeinsame Listen.
+      @if (!isAdmin()) {
+        Pflegen können nur Admins.
+      }
+    </p>
+  </header>
+
+  <div class="listen__grid">
+    @if (!listsReady()) {
+      <p class="listen__empty">Listen werden geladen…</p>
+    } @else {
+      @for (list of listItems(); track list.id) {
+        <a class="listen__card" [routerLink]="['/listen', list.id]">
+          <i class="listen__card-icon" [ngClass]="iconClass(list.icon)" aria-hidden="true"></i>
+          <div class="listen__card-body">
+            <h2 class="listen__card-title">{{ list.name }}</h2>
+            <p class="listen__card-meta">
+              {{ list.authorName }} · {{ list.visibility === 'public' ? 'Public' : 'Privat' }} ·
+              {{ list.entryCount }} Einträge
+            </p>
+          </div>
+        </a>
+      } @empty {
+        <p class="listen__empty">Keine Listen gefunden.</p>
+      }
+    }
+  </div>
+
+  @if (isAdmin() && showCreate()) {
+    <form class="listen__create" [formGroup]="form" (ngSubmit)="createList()">
+      <h2 class="listen__create-title">Neuen Listentyp anlegen</h2>
+      <mat-form-field appearance="outline">
+        <mat-label>Name</mat-label>
+        <input matInput formControlName="name" maxlength="80" placeholder="z. B. Medikamente" />
+      </mat-form-field>
+
+      <p class="listen__label">Icon</p>
+      <div class="listen__icons">
+        @for (icon of iconOptions; track icon.name) {
+          <button
+            class="listen__icon-option"
+            [class.listen__icon-option--selected]="selectedIcon() === icon.name"
+            type="button"
+            [attr.title]="icon.label"
+            [attr.aria-label]="icon.label"
+            (click)="selectIcon(icon.name)"
+          >
+            <i class="listen__icon" [ngClass]="iconClass(icon.name)" aria-hidden="true"></i>
+          </button>
+        }
+      </div>
+
+      <mat-form-field class="listen__visibility" appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Sichtbarkeit</mat-label>
+        <mat-select formControlName="visibility">
+          <mat-option value="private">Privat</mat-option>
+          <mat-option value="public">Public</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <div class="listen__create-actions">
+        <button matButton type="button" (click)="showCreate.set(false)">Abbrechen</button>
+        <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+      </div>
+    </form>
+  }
+</section>
