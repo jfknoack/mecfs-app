@@ -31,12 +31,18 @@ service cloud.firestore {
       return /databases/$(database)/documents/allowedUsers/$(emailKey());
     }
 
-    function isInvited() {
-      return verified() && exists(invitePath());
-    }
-
     function inviteRole() {
       return get(invitePath()).data.role;
+    }
+
+    function inviteRoleNormalized() {
+      return inviteRole() == 'patient' ? 'client' : inviteRole();
+    }
+
+    function isInvited() {
+      return verified()
+        && exists(invitePath())
+        && inviteRoleNormalized() in ['admin', 'client'];
     }
 
     function hasUserDoc() {
@@ -48,11 +54,27 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isMember() && (isBootstrapAdmin() || inviteRole() == 'admin' || inviteRole() == 'patient');
+      return isMember() && (isBootstrapAdmin() || inviteRoleNormalized() == 'admin');
+    }
+
+    function isHouseholdEditor() {
+      return isMember() && (isBootstrapAdmin() || inviteRoleNormalized() == 'admin' || inviteRoleNormalized() == 'client');
+    }
+
+    function isClientRole() {
+      return isMember() && !isBootstrapAdmin() && inviteRoleNormalized() == 'client';
     }
 
     function canAccessPacing() {
-      return isMember() && (isBootstrapAdmin() || inviteRole() == 'patient');
+      return isHouseholdEditor();
+    }
+
+    function canLogPacing() {
+      return isMember() && (isBootstrapAdmin() || inviteRoleNormalized() == 'client');
+    }
+
+    function canManagePacingCatalog() {
+      return isHouseholdEditor();
     }
 
     function validAllowedUser(emailId) {
@@ -61,7 +83,7 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 80
-        && request.resource.data.role in ['user', 'admin', 'patient'];
+        && request.resource.data.role in ['admin', 'client'];
     }
 
     function validUserDoc(uid) {
@@ -71,7 +93,7 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 80
-        && request.resource.data.role in ['user', 'admin', 'patient'];
+        && request.resource.data.role in ['admin', 'client'];
     }
 
     match /config/{docId} {
@@ -107,7 +129,7 @@ service cloud.firestore {
         && validUserDoc(uid)
         && (
           (isBootstrapAdmin() && request.resource.data.role == 'admin')
-          || (isInvited() && request.resource.data.role == inviteRole())
+          || (isInvited() && request.resource.data.role == inviteRoleNormalized())
         );
 
       allow update: if (
@@ -117,7 +139,7 @@ service cloud.firestore {
         && (
           request.resource.data.role == resource.data.role
           || (isBootstrapAdmin() && request.resource.data.role == 'admin')
-          || (isInvited() && request.resource.data.role == inviteRole())
+          || (isInvited() && request.resource.data.role == inviteRoleNormalized())
         )
       ) || (
         isAdmin()
@@ -126,7 +148,7 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 80
-        && request.resource.data.role in ['user', 'admin', 'patient']
+        && request.resource.data.role in ['admin', 'client']
         && !(resource.data.email == bootstrapEmail() && request.resource.data.role != 'admin')
       );
 
@@ -134,7 +156,7 @@ service cloud.firestore {
     }
 
     match /listNames/{nameKey} {
-      allow read: if isMember();
+      allow read: if isMember() && !isClientRole();
       allow create: if isAdmin()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.listId is string;
@@ -142,7 +164,7 @@ service cloud.firestore {
     }
 
     match /lists/{listId} {
-      allow read: if isMember();
+      allow read: if isMember() && !isClientRole();
       allow create: if isAdmin()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
@@ -155,7 +177,7 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
 
       match /entries/{entryId} {
-        allow read: if isMember();
+        allow read: if isMember() && !isClientRole();
         allow create: if isAdmin()
           && request.resource.data.authorUid == request.auth.uid
           && request.resource.data.text is string
@@ -172,7 +194,7 @@ service cloud.firestore {
     }
 
     match /routines/{routineId} {
-      allow read: if isMember();
+      allow read: if isMember() && !isClientRole();
       allow create: if isAdmin()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
@@ -233,13 +255,14 @@ service cloud.firestore {
         && request.resource.data.items.size() <= 80
       ) || (
         isMember()
+        && !isClientRole()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['completions', 'updatedAt'])
       );
       allow delete: if isAdmin();
     }
 
     match /recipes/{recipeId} {
-      allow read: if isMember();
+      allow read: if isMember() && !isClientRole();
       allow create: if isAdmin()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
@@ -312,10 +335,10 @@ service cloud.firestore {
 
     match /pacingActivityNames/{nameKey} {
       allow read: if canAccessPacing();
-      allow create: if canAccessPacing()
+      allow create: if canManagePacingCatalog()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.activityId is string;
-      allow delete: if canAccessPacing();
+      allow delete: if canManagePacingCatalog();
     }
 
     function validPacingKind(data) {
@@ -330,7 +353,7 @@ service cloud.firestore {
 
     match /pacingActivities/{activityId} {
       allow read: if canAccessPacing();
-      allow create: if canAccessPacing()
+      allow create: if canManagePacingCatalog()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
         && request.resource.data.title is string
@@ -341,7 +364,7 @@ service cloud.firestore {
         && request.resource.data.description.size() <= 2000
         && validPacingKind(request.resource.data)
         && validEnergyCost(request.resource.data);
-      allow update: if canAccessPacing()
+      allow update: if canManagePacingCatalog()
         && request.resource.data.authorUid == resource.data.authorUid
         && request.resource.data.title is string
         && request.resource.data.title.size() > 0
@@ -351,12 +374,12 @@ service cloud.firestore {
         && request.resource.data.description.size() <= 2000
         && validPacingKind(request.resource.data)
         && validEnergyCost(request.resource.data);
-      allow delete: if canAccessPacing();
+      allow delete: if canManagePacingCatalog();
     }
 
     match /pacingLogs/{logId} {
       allow read: if canAccessPacing();
-      allow create: if canAccessPacing()
+      allow create: if canLogPacing()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
         && request.resource.data.date is string
@@ -374,7 +397,7 @@ service cloud.firestore {
         && request.resource.data.difficulty >= 0
         && request.resource.data.difficulty <= 10
         && validPacingKind(request.resource.data);
-      allow update: if canAccessPacing()
+      allow update: if canLogPacing()
         && request.resource.data.authorUid == resource.data.authorUid
         && request.resource.data.date == resource.data.date
         && request.resource.data.activityId is string
@@ -390,12 +413,12 @@ service cloud.firestore {
         && request.resource.data.time is string
         && request.resource.data.time.size() == 5
         && validPacingKind(request.resource.data);
-      allow delete: if canAccessPacing();
+      allow delete: if canLogPacing();
     }
 
     match /pacingDays/{dayId} {
       allow read: if canAccessPacing();
-      allow create, update: if canAccessPacing()
+      allow create, update: if canLogPacing()
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.authorName is string
         && request.resource.data.date == dayId
@@ -407,7 +430,18 @@ service cloud.firestore {
         && request.resource.data.budget is number
         && request.resource.data.budget >= 1
         && request.resource.data.budget <= 80;
-      allow delete: if canAccessPacing();
+      allow delete: if canLogPacing();
+    }
+
+    match /pacingSettings/{uid} {
+      allow read: if canAccessPacing();
+      allow create, update: if canLogPacing()
+        && request.auth.uid == uid
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.bellScore is number
+        && request.resource.data.bellScore >= 0
+        && request.resource.data.bellScore <= 100;
+      allow delete: if canLogPacing() && request.auth.uid == uid;
     }
   }
 }

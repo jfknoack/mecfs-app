@@ -3,19 +3,24 @@
   <header class="pacing-aktivitaeten__header">
     <div class="pacing-aktivitaeten__heading">
       <h1 class="pacing-aktivitaeten__title">{{ title }}</h1>
-      <button
-        class="pacing-aktivitaeten__icon-btn"
-        type="button"
-        title="Aktivität hinzufügen"
-        aria-label="Aktivität hinzufügen"
-        (click)="openAdd()"
-      >
-        <i class="pacing-aktivitaeten__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
-      </button>
+      @if (canManage()) {
+        <button
+          class="pacing-aktivitaeten__icon-btn"
+          type="button"
+          title="Aktivität hinzufügen"
+          aria-label="Aktivität hinzufügen"
+          (click)="openAdd()"
+        >
+          <i class="pacing-aktivitaeten__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+        </button>
+      }
     </div>
     <p class="pacing-aktivitaeten__subtitle">
       Jede Tätigkeit bekommt eine Kategorie und einen typischen Preis. Ruhe füllt das Envelope
       wieder auf.
+      @if (!canManage()) {
+        Den Katalog pflegen Client und Admins.
+      }
     </p>
   </header>
 
@@ -59,39 +64,44 @@
                   }
                 </p>
               </div>
-              <button
-                class="pacing-aktivitaeten__icon-btn"
-                type="button"
-                title="Bearbeiten"
-                aria-label="Bearbeiten"
-                (click)="openEdit(activity.id)"
-              >
-                <i
-                  class="pacing-aktivitaeten__icon"
-                  [ngClass]="iconClass('pen-to-square')"
-                  aria-hidden="true"
-                ></i>
-              </button>
-              <button
-                class="pacing-aktivitaeten__icon-btn pacing-aktivitaeten__icon-btn--danger"
-                type="button"
-                title="Löschen"
-                aria-label="Löschen"
-                (click)="deleteActivity(activity.id)"
-              >
-                <i
-                  class="pacing-aktivitaeten__icon"
-                  [ngClass]="iconClass('trash-can')"
-                  aria-hidden="true"
-                ></i>
-              </button>
+              @if (canManage()) {
+                <button
+                  class="pacing-aktivitaeten__icon-btn"
+                  type="button"
+                  title="Bearbeiten"
+                  aria-label="Bearbeiten"
+                  (click)="openEdit(activity.id)"
+                >
+                  <i
+                    class="pacing-aktivitaeten__icon"
+                    [ngClass]="iconClass('pen-to-square')"
+                    aria-hidden="true"
+                  ></i>
+                </button>
+                <button
+                  class="pacing-aktivitaeten__icon-btn pacing-aktivitaeten__icon-btn--danger"
+                  type="button"
+                  title="Löschen"
+                  aria-label="Löschen"
+                  (click)="deleteActivity(activity.id)"
+                >
+                  <i
+                    class="pacing-aktivitaeten__icon"
+                    [ngClass]="iconClass('trash-can')"
+                    aria-hidden="true"
+                  ></i>
+                </button>
+              }
             }
           </li>
         }
       } @empty {
         @if (!adding()) {
           <li class="pacing-aktivitaeten__empty">
-            Noch keine Aktivitäten. Plus drücken, z. B. „Duschen“ oder „20 Minuten liegen“.
+            Noch keine Aktivitäten.
+            @if (canManage()) {
+              Plus drücken, z. B. „Duschen“ oder „20 Minuten liegen“.
+            }
           </li>
         }
       }

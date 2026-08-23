@@ -5,7 +5,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { UserRole } from '../../core/auth/auth.model';
+import { USER_ROLE_OPTIONS, UserRole } from '../../core/auth/auth.model';
 import {
   AllowedUserService,
   BootstrapUserError,
@@ -31,6 +31,7 @@ export class Admin {
   private readonly allowedUsers = inject(AllowedUserService);
 
   protected readonly title = 'Admin';
+  protected readonly roleOptions = USER_ROLE_OPTIONS;
   protected readonly users = this.allowedUsers.users;
   protected readonly usersReady = this.allowedUsers.ready;
   protected readonly saving = signal(false);
@@ -40,14 +41,14 @@ export class Admin {
   protected readonly form = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(80)]],
     email: ['', [Validators.required, Validators.email, Validators.maxLength(80)]],
-    role: this.formBuilder.nonNullable.control<UserRole>('user'),
+    role: this.formBuilder.nonNullable.control<UserRole>('client'),
   });
 
   protected toggleCreate(): void {
     const next = !this.showCreate();
     this.showCreate.set(next);
     if (next) {
-      this.form.reset({ name: '', email: '', role: 'user' });
+      this.form.reset({ name: '', email: '', role: 'client' });
     }
   }
 
@@ -60,7 +61,7 @@ export class Admin {
     this.saving.set(true);
     try {
       await this.allowedUsers.createUser(this.form.getRawValue());
-      this.form.reset({ name: '', email: '', role: 'user' });
+      this.form.reset({ name: '', email: '', role: 'client' });
       this.showCreate.set(false);
       this.snackBar.open('Benutzer angelegt. Die Person kann sich mit Google anmelden.', 'OK', {
         duration: 3500,

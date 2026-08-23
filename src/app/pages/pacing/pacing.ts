@@ -33,7 +33,8 @@ import {
   restCreditLabel,
   suggestedCost,
 } from '../../core/pacing/pacing.model';
-import { PacingService, SameDayPacingError } from '../../core/pacing/pacing.service';
+import { Auth } from '../../core/auth/auth';
+import { PacingPermissionError, PacingService, SameDayPacingError } from '../../core/pacing/pacing.service';
 import {
   addDateKeyDays,
   formatDateLabel,
@@ -87,8 +88,12 @@ interface ActivityGroup {
 })
 export class Pacing {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly auth = inject(Auth);
   private readonly pacing = inject(PacingService);
   private readonly snackBar = inject(MatSnackBar);
+
+  protected readonly canLog = this.auth.canLogPacing;
+  protected readonly bellScore = this.pacing.bellScore;
 
   protected readonly title = 'Pacing';
   protected readonly iconClass = listIconClass;
@@ -195,9 +200,14 @@ export class Pacing {
     return activity ? isRestKind(activity.kind) : false;
   });
 
-  protected readonly dayEditable = computed(() => isPacingLogToday(this.viewingDayKey() ?? todayDateKey()));
+  protected readonly dayEditable = computed(
+    () => this.canLog() && isPacingLogToday(this.viewingDayKey() ?? todayDateKey()),
+  );
 
   protected readonly logEditable = computed(() => {
+    if (!this.canLog()) {
+      return false;
+    }
     const log = this.editingLog();
     return log ? isPacingLogToday(log.date) : true;
   });
@@ -213,6 +223,9 @@ export class Pacing {
   });
 
   protected toggleAdd(): void {
+    if (!this.canLog()) {
+      return;
+    }
     if (this.popover() === 'log' && !this.editingLogId()) {
       this.closePopover();
       return;
@@ -221,6 +234,9 @@ export class Pacing {
   }
 
   protected openCreate(activityId?: string): void {
+    if (!this.canLog()) {
+      return;
+    }
     const activity =
       (activityId ? this.pacing.activityById(activityId) : undefined) ?? this.activities()[0];
     this.editingLogId.set(null);
@@ -348,7 +364,7 @@ export class Pacing {
       this.closePopover();
     } catch (error) {
       const message =
-        error instanceof SameDayPacingError
+        error instanceof SameDayPacingError || error instanceof PacingPermissionError
           ? error.message
           : 'Karte konnte nicht gespeichert werden.';
       this.snackBar.open(message, 'OK', { duration: 4000 });
@@ -377,7 +393,7 @@ export class Pacing {
       this.closePopover();
     } catch (error) {
       const message =
-        error instanceof SameDayPacingError
+        error instanceof SameDayPacingError || error instanceof PacingPermissionError
           ? error.message
           : 'Check-in konnte nicht gespeichert werden.';
       this.snackBar.open(message, 'OK', { duration: 4000 });

@@ -37,9 +37,9 @@
       <mat-form-field appearance="outline">
         <mat-label>Rolle</mat-label>
         <mat-select formControlName="role">
-          <mat-option value="user">User</mat-option>
-          <mat-option value="admin">Admin</mat-option>
-          <mat-option value="patient">Patient</mat-option>
+          @for (option of roleOptions; track option.value) {
+            <mat-option [value]="option.value">{{ option.label }}</mat-option>
+          }
         </mat-select>
       </mat-form-field>
       <div class="admin__create-actions">
@@ -71,9 +71,9 @@
               [disabled]="isBootstrap(user.email)"
               (selectionChange)="setRole(user.email, $event.value)"
             >
-              <mat-option value="user">User</mat-option>
-              <mat-option value="admin">Admin</mat-option>
-              <mat-option value="patient">Patient</mat-option>
+              @for (option of roleOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
           <button

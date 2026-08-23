@@ -18,6 +18,11 @@ import { Auth } from '../auth/auth';
 import { firebaseDb, isFirebaseConfigured } from '../firebase/firebase-app';
 import { toNameKey } from '../lists/list.service';
 import {
+  BellScore,
+  normalizeBellScore,
+  suggestedBudgetFromBell,
+} from './bell-score.model';
+import {
   clampBudget,
   clampDifficulty,
   comparePacingLogs,
@@ -27,7 +32,6 @@ import {
   normalizePacingKind,
   normalizePacingTime,
   nowTimeKey,
-  PACING_BUDGET_DEFAULT,
   PacingActivity,
   PacingDay,
   PacingLog,
@@ -48,24 +52,36 @@ export class SameDayPacingError extends Error {
   }
 }
 
+export class PacingPermissionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PacingPermissionError';
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class PacingService {
   private readonly activitiesState = signal<PacingActivity[]>([]);
   private readonly logsState = signal<PacingLog[]>([]);
   private readonly daysState = signal<PacingDay[]>([]);
+  private readonly bellScoreState = signal<BellScore | null>(null);
   private readonly activitiesReadyState = signal(false);
   private readonly logsReadyState = signal(false);
   private readonly daysReadyState = signal(false);
+  private readonly settingsReadyState = signal(false);
   private activitiesUnsub: Unsubscribe | null = null;
   private logsUnsub: Unsubscribe | null = null;
   private daysUnsub: Unsubscribe | null = null;
+  private settingsUnsub: Unsubscribe | null = null;
 
   readonly activities = this.activitiesState.asReadonly();
   readonly logs = this.logsState.asReadonly();
   readonly days = this.daysState.asReadonly();
+  readonly bellScore = this.bellScoreState.asReadonly();
   readonly activitiesReady = this.activitiesReadyState.asReadonly();
   readonly logsReady = this.logsReadyState.asReadonly();
   readonly daysReady = this.daysReadyState.asReadonly();
+  readonly settingsReady = this.settingsReadyState.asReadonly();
 
   constructor(private readonly auth: Auth) {
     effect(() => {
@@ -76,17 +92,21 @@ export class PacingService {
           this.stopWatchingActivities();
           this.stopWatchingLogs();
           this.stopWatchingDays();
+          this.stopWatchingSettings();
           this.activitiesState.set([]);
           this.logsState.set([]);
           this.daysState.set([]);
+          this.bellScoreState.set(null);
           this.activitiesReadyState.set(true);
           this.logsReadyState.set(true);
           this.daysReadyState.set(true);
+          this.settingsReadyState.set(true);
           return;
         }
         this.watchActivities();
         this.watchLogs();
         this.watchDays();
+        this.watchSettings(uid);
       });
     });
   }
@@ -111,7 +131,7 @@ export class PacingService {
 
   lastBudget(): number {
     const latest = [...this.daysState()].sort((a, b) => b.date.localeCompare(a.date))[0];
-    return latest?.budget ?? PACING_BUDGET_DEFAULT;
+    return latest?.budget ?? suggestedBudgetFromBell(this.bellScoreState());
   }
 
   budgetFor(date: string): number {
@@ -119,7 +139,7 @@ export class PacingService {
   }
 
   async createActivity(input: CreatePacingActivityInput): Promise<string> {
-    const uid = this.requirePacingAccess();
+    const uid = this.requireCatalogAccess();
     const title = input.title.trim().replace(/\s+/g, ' ');
     const titleKey = toNameKey(title);
     const description = input.description.trim();
@@ -156,7 +176,7 @@ export class PacingService {
   }
 
   async updateActivity(activity: PacingActivity, input: CreatePacingActivityInput): Promise<void> {
-    const uid = this.requirePacingAccess();
+    const uid = this.requireCatalogAccess();
     const title = input.title.trim().replace(/\s+/g, ' ');
     const titleKey = toNameKey(title);
     const description = input.description.trim();
@@ -190,7 +210,7 @@ export class PacingService {
   }
 
   async deleteActivity(activity: PacingActivity): Promise<void> {
-    this.requirePacingAccess();
+    this.requireCatalogAccess();
     await runTransaction(firebaseDb(), async (transaction) => {
       transaction.delete(doc(firebaseDb(), 'pacingActivities', activity.id));
       transaction.delete(doc(firebaseDb(), 'pacingActivityNames', activity.titleKey));
@@ -198,7 +218,7 @@ export class PacingService {
   }
 
   async addLog(input: CreatePacingLogInput): Promise<void> {
-    const uid = this.requirePacingAccess();
+    const uid = this.requireLogAccess();
     this.requireSameDay(input.date);
     await addDoc(collection(firebaseDb(), 'pacingLogs'), {
       date: input.date,
@@ -225,7 +245,7 @@ export class PacingService {
       activity?: PacingActivity;
     },
   ): Promise<void> {
-    this.requirePacingAccess();
+    this.requireLogAccess();
     this.requireSameDay(log.date);
     const time = normalizePacingTime(patch.time ?? log.time);
     const activity = patch.activity;
@@ -245,13 +265,13 @@ export class PacingService {
   }
 
   async deleteLog(log: PacingLog): Promise<void> {
-    this.requirePacingAccess();
+    this.requireLogAccess();
     this.requireSameDay(log.date);
     await deleteDoc(doc(firebaseDb(), 'pacingLogs', log.id));
   }
 
   async saveDay(input: SavePacingDayInput): Promise<void> {
-    const uid = this.requirePacingAccess();
+    const uid = this.requireLogAccess();
     this.requireSameDay(input.date);
     const existing = this.dayByDate(input.date);
     await setDoc(
@@ -265,6 +285,19 @@ export class PacingService {
         authorName: this.auth.username() ?? 'Unbekannt',
         updatedAt: serverTimestamp(),
         ...(existing ? {} : { createdAt: serverTimestamp() }),
+      },
+      { merge: true },
+    );
+  }
+
+  async saveBellScore(score: BellScore): Promise<void> {
+    const uid = this.requireBellAccess();
+    await setDoc(
+      doc(firebaseDb(), 'pacingSettings', uid),
+      {
+        bellScore: score,
+        authorUid: uid,
+        updatedAt: serverTimestamp(),
       },
       { merge: true },
     );
@@ -310,6 +343,19 @@ export class PacingService {
     );
   }
 
+  private watchSettings(uid: string): void {
+    this.stopWatchingSettings();
+    this.settingsUnsub = onSnapshot(
+      doc(firebaseDb(), 'pacingSettings', uid),
+      (snapshot) => {
+        const data = snapshot.data();
+        this.bellScoreState.set(normalizeBellScore(data?.['bellScore'] ?? null));
+        this.settingsReadyState.set(true);
+      },
+      () => this.settingsReadyState.set(true),
+    );
+  }
+
   private stopWatchingActivities(): void {
     this.activitiesUnsub?.();
     this.activitiesUnsub = null;
@@ -325,6 +371,11 @@ export class PacingService {
     this.daysUnsub = null;
   }
 
+  private stopWatchingSettings(): void {
+    this.settingsUnsub?.();
+    this.settingsUnsub = null;
+  }
+
   private requireSameDay(date: string): void {
     if (!isPacingLogToday(date)) {
       throw new SameDayPacingError();
@@ -338,6 +389,30 @@ export class PacingService {
     }
     if (!this.auth.canSeePacing()) {
       throw new Error('Kein Zugriff auf Pacing.');
+    }
+    return uid;
+  }
+
+  private requireCatalogAccess(): string {
+    const uid = this.requirePacingAccess();
+    if (!this.auth.canManagePacingActivities()) {
+      throw new PacingPermissionError('Aktivitäten dürfen Client und Admins anlegen.');
+    }
+    return uid;
+  }
+
+  private requireLogAccess(): string {
+    const uid = this.requirePacingAccess();
+    if (!this.auth.canLogPacing()) {
+      throw new PacingPermissionError('Einträge am Tag darf nur der Client speichern.');
+    }
+    return uid;
+  }
+
+  private requireBellAccess(): string {
+    const uid = this.requirePacingAccess();
+    if (!this.auth.canEditBellScore()) {
+      throw new PacingPermissionError('Den Bell-Score setzt nur der Client.');
     }
     return uid;
   }

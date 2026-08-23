@@ -26,7 +26,15 @@ export const roleGuard: CanActivateFn = async (route, state) => {
     return router.createUrlTree(['/dashboard']);
   }
 
-  if (requiredRole === 'admin' && !auth.isAdmin()) {
+  if (route.data['recipes'] && !auth.canSeeRecipes()) {
+    return router.createUrlTree(['/dashboard']);
+  }
+
+  if (route.data['household'] && !auth.canSeeHousehold()) {
+    return router.createUrlTree(['/dashboard']);
+  }
+
+  if (requiredRole === 'admin' && !auth.canManageUsers()) {
     return router.createUrlTree(['/dashboard']);
   }
 

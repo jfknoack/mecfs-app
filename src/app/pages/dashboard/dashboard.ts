@@ -81,6 +81,9 @@ export class Dashboard {
   protected readonly listIconClass = listIconClass;
   protected readonly isItemChecked = isItemChecked;
   protected readonly calendarEventTimeLabel = calendarEventTimeLabel;
+  protected readonly formatDateLabel = formatDateLabel;
+  protected readonly isClient = this.auth.isClient;
+  protected readonly canSeeRecipes = this.auth.canSeeRecipes;
   protected readonly calendarConfigured = this.google.isConfigured;
   protected readonly hasCalendarAccess = this.auth.hasCalendarAccess;
   protected readonly connecting = signal(false);
@@ -106,14 +109,38 @@ export class Dashboard {
 
   protected readonly todayItems = computed(() => this.timelineFor(this.todayKey));
   protected readonly tomorrowItems = computed(() => this.timelineFor(this.tomorrowKey));
+  protected readonly upcomingEvents = computed(() => {
+    const today = this.todayKey;
+    const now = currentTimeKey();
+    return this.calendarEvents()
+      .filter((event) => {
+        if (event.endDate > today) {
+          return true;
+        }
+        if (event.endDate < today) {
+          return false;
+        }
+        if (event.allDay) {
+          return true;
+        }
+        return (event.endTime || event.startTime) >= now;
+      })
+      .sort((a, b) => {
+        const left = `${a.startDate}${a.allDay ? '00:00' : a.startTime}`;
+        const right = `${b.startDate}${b.allDay ? '00:00' : b.startTime}`;
+        return left.localeCompare(right) || a.title.localeCompare(b.title, 'de');
+      })
+      .slice(0, 16);
+  });
 
   constructor() {
     effect(() => {
       this.google.revision();
       this.google.isConfigured();
       const access = this.hasCalendarAccess();
+      const clientDashboard = this.isClient();
       untracked(() => {
-        void this.loadCalendarEvents(access);
+        void this.loadCalendarEvents(access, clientDashboard);
       });
     });
   }
@@ -201,14 +228,17 @@ export class Dashboard {
     return items.sort((a, b) => a.sort.localeCompare(b.sort) || titleOf(a).localeCompare(titleOf(b), 'de'));
   }
 
-  private async loadCalendarEvents(access: boolean): Promise<void> {
+  private async loadCalendarEvents(access: boolean, clientDashboard: boolean): Promise<void> {
     if (!this.calendarConfigured() || !access) {
       this.calendarEvents.set([]);
       return;
     }
     const start = parseDateKey(this.todayKey);
     start.setHours(0, 0, 0, 0);
-    const end = parseDateKey(addDateKeyDays(this.tomorrowKey, 1));
+    const rangeEnd = clientDashboard
+      ? addDateKeyDays(this.todayKey, 21)
+      : addDateKeyDays(this.tomorrowKey, 1);
+    const end = parseDateKey(rangeEnd);
     end.setHours(0, 0, 0, 0);
     try {
       this.calendarEvents.set(await this.google.listEvents(start, end));
@@ -263,6 +293,10 @@ function groupRoutineItems(
 
 function titleOf(item: TimelineItem): string {
   return item.kind === 'routine' ? (item.card?.title ?? '') : (item.event?.title ?? '');
+}
+
+function currentTimeKey(date = new Date()): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 function calendarErrorMessage(error: unknown): string {

@@ -103,7 +103,8 @@ export class RoutineDetail {
   protected readonly routineReady = this.routines.routineReady;
   protected readonly listItems = this.lists.lists;
   protected readonly recipeItems = this.recipes.recipes;
-  protected readonly isAdmin = this.auth.isAdmin;
+  protected readonly isAdmin = this.auth.canManageHousehold;
+  protected readonly canSeeRecipes = this.auth.canSeeRecipes;
   protected readonly saving = signal(false);
   protected readonly formMode = signal<RoutineFormMode>('none');
   protected readonly itemKind = signal<ItemKind>('listEntry');
@@ -273,6 +274,9 @@ export class RoutineDetail {
     if (!this.isAdmin()) {
       return;
     }
+    if (group.kind === 'recipe' && !this.canSeeRecipes()) {
+      return;
+    }
     this.resetItemDraft();
     this.itemKind.set(group.kind);
     this.formMode.set('item');
@@ -289,6 +293,9 @@ export class RoutineDetail {
   }
 
   protected onItemKindChange(kind: ItemKind): void {
+    if (kind === 'recipe' && !this.canSeeRecipes()) {
+      return;
+    }
     this.itemKind.set(kind);
     this.draftList.set(null);
     this.draftEntries.set([]);

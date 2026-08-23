@@ -39,8 +39,9 @@ export class RecipeService {
   constructor(private readonly auth: Auth) {
     effect(() => {
       const uid = this.auth.uid();
+      const canSee = this.auth.canSeeRecipes();
       untracked(() => {
-        if (!isFirebaseConfigured() || !uid) {
+        if (!isFirebaseConfigured() || !uid || !canSee) {
           this.stopWatchingRecipes();
           this.recipesState.set([]);
           this.recipesReadyState.set(true);

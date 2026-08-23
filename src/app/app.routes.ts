@@ -22,40 +22,40 @@ export const routes: Routes = [
     path: 'listen',
     loadComponent: () => import('./pages/listen/listen').then((m) => m.Listen),
     canActivate: [roleGuard],
-    data: { title: 'Listen' },
+    data: { title: 'Listen', household: true },
   },
   {
     path: 'listen/:id',
     loadComponent: () =>
       import('./pages/listen/listen-detail/listen-detail').then((m) => m.ListenDetail),
     canActivate: [roleGuard],
-    data: { title: 'Liste' },
+    data: { title: 'Liste', household: true },
   },
   {
     path: 'routinen',
     loadComponent: () => import('./pages/routinen/routinen').then((m) => m.Routinen),
     canActivate: [roleGuard],
-    data: { title: 'Routinen' },
+    data: { title: 'Routinen', household: true },
   },
   {
     path: 'routinen/:id',
     loadComponent: () =>
       import('./pages/routinen/routine-detail/routine-detail').then((m) => m.RoutineDetail),
     canActivate: [roleGuard],
-    data: { title: 'Routine' },
+    data: { title: 'Routine', household: true },
   },
   {
     path: 'rezepte',
     loadComponent: () => import('./pages/rezepte/rezepte').then((m) => m.Rezepte),
     canActivate: [roleGuard],
-    data: { title: 'Rezepte' },
+    data: { title: 'Rezepte', recipes: true },
   },
   {
     path: 'rezepte/:id',
     loadComponent: () =>
       import('./pages/rezepte/rezept-detail/rezept-detail').then((m) => m.RezeptDetail),
     canActivate: [roleGuard],
-    data: { title: 'Rezept' },
+    data: { title: 'Rezept', recipes: true },
   },
   {
     path: 'budget',
@@ -81,6 +81,12 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/pacing/pacing').then((m) => m.Pacing),
     canActivate: [roleGuard],
     data: { title: 'Pacing', pacing: true },
+  },
+  {
+    path: 'bell-score',
+    loadComponent: () => import('./pages/bell-score/bell-score').then((m) => m.BellScorePage),
+    canActivate: [roleGuard],
+    data: { title: 'Bell-Score', pacing: true },
   },
   {
     path: 'pacing/aktivitaeten',

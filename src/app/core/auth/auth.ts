@@ -9,7 +9,7 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { AppConfigService } from '../config/app-config.service';
 import { firebaseAuth, firebaseDb, isFirebaseConfigured } from '../firebase/firebase-app';
-import { normalizeEmail, parseUserRole, isStaffRole, UserRole } from './auth.model';
+import { normalizeEmail, parseUserRole, roleLabel, UserRole } from './auth.model';
 
 export type { UserRole } from './auth.model';
 
@@ -66,16 +66,27 @@ export class Auth {
     return dbRole;
   });
   readonly isLoggedIn = computed(() => this.dbRoleState() !== null);
-  readonly isAdmin = computed(() => isStaffRole(this.role()));
-  readonly actualIsAdmin = computed(() => isStaffRole(this.dbRoleState()));
-  readonly isPatient = computed(() => this.role() === 'patient');
+  readonly isAdmin = computed(() => this.role() === 'admin');
+  readonly actualIsAdmin = computed(() => this.dbRoleState() === 'admin');
+  readonly isSuperuser = computed(
+    () => this.role() === 'admin' && this.isPacingSuperuser(),
+  );
+  readonly isClient = computed(() => this.role() === 'client');
+  readonly canManageUsers = computed(() => this.role() === 'admin');
+  readonly canSeeHousehold = computed(() => this.role() !== 'client' && this.role() !== null);
+  readonly canManageHousehold = computed(() => this.role() === 'admin');
+  readonly canSeeRecipes = computed(() => this.role() !== 'client' && this.role() !== null);
+  readonly isPatient = computed(() => this.role() === 'client');
   readonly canSeePacing = computed(() => {
     const role = this.role();
-    if (role === 'patient') {
-      return true;
-    }
-    return role === 'admin' && this.isPacingSuperuser();
+    return role === 'client' || role === 'admin';
   });
+  readonly canLogPacing = computed(() => this.role() === 'client' || this.isSuperuser());
+  readonly canManagePacingActivities = computed(
+    () => this.role() === 'client' || this.role() === 'admin',
+  );
+  readonly canEditBellScore = computed(() => this.role() === 'client' || this.isSuperuser());
+  readonly roleLabel = computed(() => roleLabel(this.role()));
   readonly canPreviewUiRole = computed(
     () => isDevMode() && this.dbRoleState() === 'admin' && this.isLoggedIn(),
   );
@@ -223,7 +234,7 @@ export class Auth {
 
       const data = invite.data();
       const inviteRole = parseUserRole(data['role']);
-      if (inviteRole !== 'user' && inviteRole !== 'admin' && inviteRole !== 'patient') {
+      if (inviteRole !== 'admin' && inviteRole !== 'client') {
         await this.rejectSession();
         throw new NotAllowedError();
       }
@@ -316,7 +327,10 @@ function readDevUiRole(): UserRole | null {
     return null;
   }
   const value = sessionStorage.getItem(DEV_UI_ROLE_KEY);
-  return value === 'user' || value === 'admin' || value === 'patient' ? value : null;
+  if (value === 'patient') {
+    return 'client';
+  }
+  return value === 'admin' || value === 'client' ? value : null;
 }
 
 function readCalendarToken(): string | null {

@@ -1,18 +1,58 @@
 <section class="dashboard">
   <header class="dashboard__header">
     <h1 class="dashboard__title">{{ title }}</h1>
-    <p class="dashboard__text">Heute abhaken, morgen nur als Vorschau.</p>
+    @if (isClient()) {
+      <p class="dashboard__text">Die nächsten Termine aus dem Google Kalender.</p>
+    } @else {
+      <p class="dashboard__text">Heute abhaken, morgen nur als Vorschau.</p>
+    }
   </header>
 
   @if (calendarConfigured() && !hasCalendarAccess()) {
     <div class="dashboard__connect">
-      <p class="dashboard__hint">Google Kalender verbinden, damit Termine in den Spalten erscheinen.</p>
+      <p class="dashboard__hint">
+        @if (isClient()) {
+          Google Kalender verbinden, damit die nächsten Termine hier erscheinen.
+        } @else {
+          Google Kalender verbinden, damit Termine in den Spalten erscheinen.
+        }
+      </p>
       <button matButton="filled" type="button" [disabled]="connecting()" (click)="connectCalendar()">
         Google Kalender verbinden
       </button>
     </div>
   }
 
+  @if (isClient()) {
+    <div class="dashboard__upcoming">
+      @for (event of upcomingEvents(); track event.id) {
+        <article class="dashboard__event">
+          <i class="dashboard__card-icon" [ngClass]="iconClass('calendar-days')" aria-hidden="true"></i>
+          <div class="dashboard__card-heading">
+            <h3 class="dashboard__event-title">{{ event.title }}</h3>
+            <p class="dashboard__card-meta">
+              {{ formatDateLabel(event.startDate) }}
+              · {{ calendarEventTimeLabel(event) }}
+              @if (event.location) {
+                · {{ event.location }}
+              }
+            </p>
+          </div>
+        </article>
+      } @empty {
+        <p class="dashboard__empty">
+          @if (!calendarConfigured()) {
+            Google Kalender ist nicht eingerichtet.
+          } @else if (!hasCalendarAccess()) {
+            Kalender noch nicht verbunden.
+          } @else {
+            Keine anstehenden Termine.
+          }
+        </p>
+      }
+    </div>
+  } @else {
+    <div class="dashboard__household">
   <div
     class="dashboard__filters"
     [class.dashboard__filters--open]="filtersOpen()"
@@ -113,6 +153,8 @@
       </div>
     </section>
   </div>
+    </div>
+  }
 </section>
 
 <ng-template #routineCard let-card="card" let-interactive="interactive">
@@ -159,7 +201,11 @@
                   }
                   <div class="dashboard__item-body">
                     @if (item.kind === 'recipe') {
-                      <a class="dashboard__recipe" [routerLink]="['/rezepte', item.recipeId]">{{ item.text }}</a>
+                      @if (canSeeRecipes()) {
+                        <a class="dashboard__recipe" [routerLink]="['/rezepte', item.recipeId]">{{ item.text }}</a>
+                      } @else {
+                        <p class="dashboard__item-text">{{ item.text }}</p>
+                      }
                     } @else {
                       <p class="dashboard__item-text">{{ item.text }}</p>
                     }

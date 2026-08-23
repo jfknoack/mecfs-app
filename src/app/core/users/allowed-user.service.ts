@@ -157,7 +157,7 @@ export class AllowedUserService {
     if (typeof payload['name'] === 'string') {
       next['name'] = payload['name'];
     }
-    if (payload['role'] === 'user' || payload['role'] === 'admin' || payload['role'] === 'patient') {
+    if (payload['role'] === 'admin' || payload['role'] === 'client') {
       next['role'] = payload['role'];
     }
     await Promise.all(snapshots.docs.map((item) => updateDoc(item.ref, next)));
@@ -181,7 +181,7 @@ export class AllowedUserService {
 
 function toAllowedUser(snapshot: QueryDocumentSnapshot<DocumentData>): AllowedUser {
   const data = snapshot.data();
-  const role = parseUserRole(data['role']);
+  const role = parseUserRole(data['role']) ?? 'client';
   return {
     email: normalizeEmail(String(data['email'] ?? snapshot.id)),
     name: String(data['name'] ?? '').trim() || snapshot.id,

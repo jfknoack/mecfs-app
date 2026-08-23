@@ -44,8 +44,9 @@ export class RoutineService {
   constructor(private readonly auth: Auth) {
     effect(() => {
       const uid = this.auth.uid();
+      const canSee = this.auth.canSeeHousehold();
       untracked(() => {
-        if (!isFirebaseConfigured() || !uid) {
+        if (!isFirebaseConfigured() || !uid || !canSee) {
           this.stopWatchingRoutines();
           this.routinesState.set([]);
           this.routinesReadyState.set(true);
@@ -111,7 +112,7 @@ export class RoutineService {
   }
 
   canEdit(): boolean {
-    return this.auth.isAdmin();
+    return this.auth.canManageHousehold();
   }
 
   async createRoutine(input: CreateRoutineInput): Promise<string> {
@@ -275,8 +276,8 @@ export class RoutineService {
 
   private requireAdmin(): string {
     const uid = this.requireUid();
-    if (!this.auth.isAdmin()) {
-      throw new Error('Nur Admins können Routinen pflegen.');
+    if (!this.auth.canManageHousehold()) {
+      throw new Error('Routinen können so nicht gespeichert werden.');
     }
     return uid;
   }

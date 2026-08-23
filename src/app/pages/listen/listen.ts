@@ -31,7 +31,7 @@ export class Listen {
   private readonly formBuilder = inject(FormBuilder);
   private readonly lists = inject(ListService);
   private readonly snackBar = inject(MatSnackBar);
-  protected readonly isAdmin = inject(Auth).isAdmin;
+  protected readonly isAdmin = inject(Auth).canManageHousehold;
 
   protected readonly title = 'Listen';
   protected readonly iconOptions = LIST_ICON_OPTIONS;

@@ -42,20 +42,15 @@ export class ListService {
   constructor(private readonly auth: Auth) {
     effect(() => {
       const uid = this.auth.uid();
+      const canSee = this.auth.canSeeHousehold();
       untracked(() => {
-        if (!isFirebaseConfigured()) {
+        if (!isFirebaseConfigured() || !uid || !canSee) {
           this.stopWatchingLists();
           this.listsState.set([]);
           this.listsReadyState.set(true);
           return;
         }
-        if (uid) {
-          this.watchLists();
-        } else {
-          this.stopWatchingLists();
-          this.listsState.set([]);
-          this.listsReadyState.set(false);
-        }
+        this.watchLists();
       });
     });
   }
@@ -265,8 +260,8 @@ export class ListService {
 
   private requireAdmin(): string {
     const uid = this.requireUid();
-    if (!this.auth.isAdmin()) {
-      throw new Error('Nur Admins können Listen pflegen.');
+    if (!this.auth.canManageHousehold()) {
+      throw new Error('Listen können so nicht gespeichert werden.');
     }
     return uid;
   }

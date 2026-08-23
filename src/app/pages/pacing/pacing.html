@@ -10,19 +10,27 @@
       >
         <i class="pacing__icon" [ngClass]="iconClass('list')" aria-hidden="true"></i>
       </a>
-      <button
-        class="pacing__icon-btn"
-        type="button"
-        title="Heute eintragen"
-        aria-label="Heute eintragen"
-        (click)="toggleAdd()"
-      >
-        <i class="pacing__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
-      </button>
+      @if (canLog()) {
+        <button
+          class="pacing__icon-btn"
+          type="button"
+          title="Heute eintragen"
+          aria-label="Heute eintragen"
+          (click)="toggleAdd()"
+        >
+          <i class="pacing__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+        </button>
+      }
     </div>
     <p class="pacing__text">
       Envelope für heute: Aktivitäten kosten Energie, Pausen geben sie zurück. Gestern und
       Vorgestern bleiben sichtbar, weil PEM oft erst 24–48 Stunden später kommt.
+      @if (bellScore() !== null) {
+        Bell-Score {{ bellScore() }}.
+      }
+      @if (!canLog()) {
+        Aktivitäten anlegen geht, Einträge und Bewertung am Tag setzt der Client.
+      }
     </p>
   </header>
 
@@ -88,7 +96,7 @@
           <p class="pacing__hint pacing__hint--warn">{{ column.hint }}</p>
         }
 
-        @if (column.today && shortcuts().length) {
+        @if (column.today && canLog() && shortcuts().length) {
           <div class="pacing__chips">
             @for (activity of shortcuts(); track activity.id) {
               <button
@@ -148,7 +156,11 @@
             } @empty {
               <p class="pacing__hint">
                 @if (column.today) {
-                  Noch nichts für heute. Unten eine häufige Aktivität antippen oder Plus drücken.
+                  @if (canLog()) {
+                    Noch nichts für heute. Unten eine häufige Aktivität antippen oder Plus drücken.
+                  } @else {
+                    Noch keine Einträge. Loggen darf nur der Client.
+                  }
                 } @else {
                   Nichts eingetragen.
                 }

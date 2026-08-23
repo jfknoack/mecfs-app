@@ -28,8 +28,8 @@
               <button
                 class="routine-detail__icon-btn"
                 type="button"
-                title="Liste oder Rezept hinzufügen"
-                aria-label="Liste oder Rezept hinzufügen"
+                [title]="canSeeRecipes() ? 'Liste oder Rezept hinzufügen' : 'Liste hinzufügen'"
+                [attr.aria-label]="canSeeRecipes() ? 'Liste oder Rezept hinzufügen' : 'Liste hinzufügen'"
                 (click)="openItemForm()"
               >
                 <i class="routine-detail__action-icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
@@ -163,7 +163,11 @@
                 />
                 <div class="routine-detail__item-body">
                   @if (item.kind === 'recipe') {
-                    <a class="routine-detail__recipe-link" [routerLink]="['/rezepte', item.recipeId]">{{ item.text }}</a>
+                    @if (canSeeRecipes()) {
+                      <a class="routine-detail__recipe-link" [routerLink]="['/rezepte', item.recipeId]">{{ item.text }}</a>
+                    } @else {
+                      <p class="routine-detail__item-text">{{ item.text }}</p>
+                    }
                     <p class="routine-detail__item-meta">Rezept</p>
                   } @else {
                     <p class="routine-detail__item-text">{{ item.text }}</p>
@@ -196,7 +200,9 @@
           <mat-label>Art</mat-label>
           <mat-select [value]="itemKind()" (selectionChange)="onItemKindChange($event.value)">
             <mat-option value="listEntry">Liste</mat-option>
-            <mat-option value="recipe">Rezept</mat-option>
+            @if (canSeeRecipes()) {
+              <mat-option value="recipe">Rezept</mat-option>
+            }
           </mat-select>
         </mat-form-field>
 

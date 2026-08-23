@@ -23,6 +23,13 @@
     opacity: 0.8;
   }
 
+  &__upcoming,
+  &__household {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
   &__connect {
     display: flex;
     flex-wrap: wrap;

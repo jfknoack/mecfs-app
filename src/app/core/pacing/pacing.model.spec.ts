@@ -1,3 +1,4 @@
+import { suggestedBudgetFromBell } from './bell-score.model';
 import {
   dayBalance,
   frequentActivities,
@@ -85,6 +86,11 @@ describe('pacing.model', () => {
       log({ id: '3', activityId: 'a', difficulty: 4 }),
     ];
     expect(frequentActivities(items, logs, 2).map((item) => item.id)).toEqual(['c', 'a']);
+  });
+
+  it('suggests a smaller budget for a lower Bell score', () => {
+    expect(suggestedBudgetFromBell(20)).toBeLessThan(suggestedBudgetFromBell(70));
+    expect(suggestedBudgetFromBell(100)).toBeGreaterThan(suggestedBudgetFromBell(50));
   });
 
   it('hints at delayed PEM after a heavy day', () => {

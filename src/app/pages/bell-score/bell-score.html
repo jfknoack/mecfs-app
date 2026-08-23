@@ -1,0 +1,74 @@
+<section class="bell">
+  <header class="bell__header">
+    <h1 class="bell__title">{{ title }}</h1>
+    <p class="bell__lead">
+      Der Bell-Score beschreibt das funktionelle Niveau bei ME/CFS in Schritten von 100 bis 0. Er
+      ändert sich langsam und setzt das Tagesbudget, nicht die einzelne Karte.
+    </p>
+  </header>
+
+  <section class="bell__setting">
+    <h2 class="bell__section-title">Dein aktueller Score</h2>
+    @if (canEdit()) {
+      <p class="bell__text">
+        Wähle die Stufe, die deinen Alltag in den letzten Wochen am ehesten trifft. Das vorgeschlagene
+        Envelope-Budget gilt, bis du im Check-in einen eigenen Wert setzt.
+      </p>
+    } @else {
+      <p class="bell__text">
+        Den Score setzt der Client. Admins sehen die Skala und den gespeicherten Wert.
+      </p>
+    }
+    <div class="bell__scores">
+      @for (level of levels; track level.score) {
+        <button
+          class="bell__score"
+          type="button"
+          [class.bell__score--selected]="selected() === level.score"
+          [disabled]="!canEdit() || saving()"
+          (click)="choose(level.score)"
+        >
+          {{ level.score }}
+        </button>
+      }
+    </div>
+    @if (selectedLevel(); as level) {
+      <p class="bell__chosen">
+        Gespeichert: <strong>{{ level.score }}</strong> · {{ level.title }}. Vorschlag fürs
+        Tagesbudget: {{ suggestedBudget() }} Punkte.
+      </p>
+    } @else if (settingsReady()) {
+      <p class="bell__chosen">Noch kein Score gesetzt.</p>
+    }
+  </section>
+
+  <section class="bell__scale">
+    <h2 class="bell__section-title">Die komplette Skala</h2>
+    <ol class="bell__list">
+      @for (level of levels; track level.score) {
+        <li
+          class="bell__item"
+          [class.bell__item--active]="selected() === level.score"
+        >
+          <div class="bell__item-head">
+            <span class="bell__badge">{{ level.score }}</span>
+            <div>
+              <h3 class="bell__item-title">{{ level.title }}</h3>
+              <p class="bell__item-summary">{{ level.summary }}</p>
+            </div>
+          </div>
+          <p class="bell__item-detail">{{ level.detail }}</p>
+        </li>
+      }
+    </ol>
+  </section>
+
+  <footer class="bell__ref">
+    <h2 class="bell__section-title">Quelle</h2>
+    <p class="bell__text">
+      {{ reference.citation }} Die hier stehenden Formulierungen fassen die
+      <span class="bell__i">CFIDS Disability Scale</span> aus diesem Werk zusammen. Der Score ist
+      ein funktionelles Raster, keine Diagnose.
+    </p>
+  </footer>
+</section>

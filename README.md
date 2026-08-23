@@ -5,7 +5,7 @@ Web-App zur Alltagsorganisation bei ME/CFS: Listen, Routinen, Rezepte, Budget, K
 ## Ist-Stand
 
 - **Anmeldung:** Google-Login. Nur E-Mail-Adressen in `allowedUsers` kommen rein. Die Super-User-Adresse steht nicht im Code, sondern in Firestore (`config/app`).
-- **Rollen:** `user` (Alltag), `admin` (Pflege der Inhalte und Benutzer), `patient` (wie Admin, plus Pacing). Der Super-User ist immer Admin und sieht Pacing.
+- **Rollen:** `admin` und `client`. Der Super-User ist immer Admin. `client` sieht Kalender, Budget, Pacing und Bell-Score, nicht Listen, Routinen oder Rezepte.
 - **Daten:** Listen, Routinen, Rezepte, Budget und Pacing liegen in Cloud Firestore.
 - **Kalender:** Routinen lokal in der App, Pflegetermine über die Google-Calendar-API. Die Kalender-ID kommt aus Firestore, nicht aus dem Repository.
 - **PWA:** Produktions-Build mit Service Worker, Hosting auf Firebase.

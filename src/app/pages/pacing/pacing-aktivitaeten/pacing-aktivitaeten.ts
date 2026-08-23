@@ -17,7 +17,12 @@ import {
   PacingKind,
   suggestedCost,
 } from '../../../core/pacing/pacing.model';
-import { DuplicatePacingActivityError, PacingService } from '../../../core/pacing/pacing.service';
+import { Auth } from '../../../core/auth/auth';
+import {
+  DuplicatePacingActivityError,
+  PacingPermissionError,
+  PacingService,
+} from '../../../core/pacing/pacing.service';
 
 interface ActivityGroup {
   value: PacingKind;
@@ -45,8 +50,11 @@ interface ActivityGroup {
 })
 export class PacingAktivitaeten {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly auth = inject(Auth);
   private readonly pacing = inject(PacingService);
   private readonly snackBar = inject(MatSnackBar);
+
+  protected readonly canManage = this.auth.canManagePacingActivities;
 
   protected readonly title = 'Aktivitäten';
   protected readonly iconClass = listIconClass;
@@ -83,12 +91,18 @@ export class PacingAktivitaeten {
   }
 
   protected openAdd(): void {
+    if (!this.canManage()) {
+      return;
+    }
     this.form.reset({ title: '', description: '', kind: 'household', energyCost: 3 });
     this.editingId.set(null);
     this.adding.set(true);
   }
 
   protected openEdit(id: string): void {
+    if (!this.canManage()) {
+      return;
+    }
     const activity = this.activities().find((item) => item.id === id);
     if (!activity) {
       return;
@@ -133,7 +147,7 @@ export class PacingAktivitaeten {
       this.closeForm();
     } catch (error) {
       this.snackBar.open(
-        error instanceof DuplicatePacingActivityError
+        error instanceof DuplicatePacingActivityError || error instanceof PacingPermissionError
           ? error.message
           : 'Aktivität konnte nicht gespeichert werden.',
         'OK',
@@ -145,6 +159,9 @@ export class PacingAktivitaeten {
   }
 
   protected async deleteActivity(id: string): Promise<void> {
+    if (!this.canManage()) {
+      return;
+    }
     const activity = this.activities().find((item) => item.id === id);
     if (!activity) {
       return;

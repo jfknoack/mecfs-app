@@ -19,6 +19,8 @@ interface NavItem {
   icon: string;
   adminOnly?: boolean;
   pacingOnly?: boolean;
+  recipesOnly?: boolean;
+  householdOnly?: boolean;
 }
 
 @Component({
@@ -52,21 +54,28 @@ export class App {
 
   private readonly allNavItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: 'house' },
-    { path: '/listen', label: 'Listen', icon: 'list' },
-    { path: '/routinen', label: 'Routinen', icon: 'repeat' },
-    { path: '/rezepte', label: 'Rezepte', icon: 'utensils' },
+    { path: '/listen', label: 'Listen', icon: 'list', householdOnly: true },
+    { path: '/routinen', label: 'Routinen', icon: 'repeat', householdOnly: true },
+    { path: '/rezepte', label: 'Rezepte', icon: 'utensils', recipesOnly: true },
     { path: '/budget', label: 'Budget', icon: 'wallet' },
     { path: '/kalender', label: 'Kalender', icon: 'calendar-days' },
     { path: '/pacing', label: 'Pacing', icon: 'battery-half', pacingOnly: true },
+    { path: '/bell-score', label: 'Bell-Score', icon: 'heart-pulse', pacingOnly: true },
     { path: '/admin', label: 'Admin', icon: 'user-shield', adminOnly: true },
   ];
 
   protected readonly navItems = computed(() =>
     this.allNavItems.filter((item) => {
-      if (item.adminOnly && !this.auth.isAdmin()) {
+      if (item.adminOnly && !this.auth.canManageUsers()) {
         return false;
       }
       if (item.pacingOnly && !this.auth.canSeePacing()) {
+        return false;
+      }
+      if (item.recipesOnly && !this.auth.canSeeRecipes()) {
+        return false;
+      }
+      if (item.householdOnly && !this.auth.canSeeHousehold()) {
         return false;
       }
       return true;
@@ -81,10 +90,22 @@ export class App {
 
   protected setUiRole(role: UserRole): void {
     this.auth.setUiRole(role);
-    if (!this.auth.isAdmin() && this.router.url.startsWith('/admin')) {
+    if (!this.auth.canManageUsers() && this.router.url.startsWith('/admin')) {
       void this.router.navigateByUrl('/dashboard');
     }
-    if (!this.auth.canSeePacing() && this.router.url.startsWith('/pacing')) {
+    if (
+      !this.auth.canSeePacing() &&
+      (this.router.url.startsWith('/pacing') || this.router.url.startsWith('/bell-score'))
+    ) {
+      void this.router.navigateByUrl('/dashboard');
+    }
+    if (!this.auth.canSeeRecipes() && this.router.url.startsWith('/rezepte')) {
+      void this.router.navigateByUrl('/dashboard');
+    }
+    if (
+      !this.auth.canSeeHousehold() &&
+      (this.router.url.startsWith('/listen') || this.router.url.startsWith('/routinen'))
+    ) {
       void this.router.navigateByUrl('/dashboard');
     }
   }

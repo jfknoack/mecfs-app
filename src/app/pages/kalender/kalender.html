@@ -187,12 +187,16 @@
                     />
                     <div class="kalender-popover__item-body">
                       @if (item.kind === 'recipe') {
-                        <a
-                          class="kalender-popover__recipe"
-                          [routerLink]="['/rezepte', item.recipeId]"
-                        >
-                          {{ item.text }}
-                        </a>
+                        @if (canSeeRecipes()) {
+                          <a
+                            class="kalender-popover__recipe"
+                            [routerLink]="['/rezepte', item.recipeId]"
+                          >
+                            {{ item.text }}
+                          </a>
+                        } @else {
+                          <p class="kalender-popover__item-text">{{ item.text }}</p>
+                        }
                         <p class="kalender-popover__item-meta">Rezept</p>
                       } @else {
                         <p class="kalender-popover__item-text">{{ item.text }}</p>

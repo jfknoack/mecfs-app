@@ -48,7 +48,7 @@ export class Routinen {
   private readonly routines = inject(RoutineService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
-  protected readonly isAdmin = inject(Auth).isAdmin;
+  protected readonly isAdmin = inject(Auth).canManageHousehold;
 
   protected readonly title = 'Routinen';
   protected readonly iconClass = routineIconClass;

@@ -91,6 +91,7 @@ export class Kalender {
   protected readonly iconClass = listIconClass;
   protected readonly calendarConfigured = this.google.isConfigured;
   protected readonly hasCalendarAccess = this.auth.hasCalendarAccess;
+  protected readonly canSeeRecipes = this.auth.canSeeRecipes;
   protected readonly connecting = signal(false);
   protected readonly saving = signal(false);
   protected readonly popover = signal<KalenderPopover | null>(null);
@@ -176,24 +177,22 @@ export class Kalender {
         right: 'dayGridMonth,timeGridWeek,timeGridDay',
       },
       events: (info, success) => {
-        const routineEvents = expandRoutineEvents(
-          this.routines.routines(),
-          info.start,
-          info.end,
-        ).map((item) => ({
-          id: item.id,
-          title: item.title,
-          start: item.start,
-          end: item.end ?? undefined,
-          color: routineColorHex(item.color),
-          contrastColor: '#fff',
-          className: eventClassName(
-            'kalender__event',
-            'kalender__event--routine',
-            item.done ? 'kalender__event--done' : '',
-          ),
-          extendedProps: { source: 'routine', routineId: item.routineId, date: item.date },
-        }));
+        const routineEvents = this.auth.canSeeHousehold()
+          ? expandRoutineEvents(this.routines.routines(), info.start, info.end).map((item) => ({
+              id: item.id,
+              title: item.title,
+              start: item.start,
+              end: item.end ?? undefined,
+              color: routineColorHex(item.color),
+              contrastColor: '#fff',
+              className: eventClassName(
+                'kalender__event',
+                'kalender__event--routine',
+                item.done ? 'kalender__event--done' : '',
+              ),
+              extendedProps: { source: 'routine', routineId: item.routineId, date: item.date },
+            }))
+          : [];
 
         void this.google
           .listEvents(info.start, info.end)

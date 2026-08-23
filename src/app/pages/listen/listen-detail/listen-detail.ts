@@ -50,7 +50,7 @@ export class ListenDetail {
 
   protected readonly list = computed(() => this.lists.listById(this.listId));
   protected readonly entries = this.lists.entries;
-  protected readonly isAdmin = this.auth.isAdmin;
+  protected readonly isAdmin = this.auth.canManageHousehold;
   protected readonly listsReady = this.lists.listsReady;
 
   protected readonly listForm = this.formBuilder.nonNullable.group({
