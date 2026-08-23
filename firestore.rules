@@ -318,6 +318,16 @@ service cloud.firestore {
       allow delete: if canAccessPacing();
     }
 
+    function validPacingKind(data) {
+      return !('kind' in data)
+        || data.kind in ['physical', 'cognitive', 'social', 'household', 'rest'];
+    }
+
+    function validEnergyCost(data) {
+      return !('energyCost' in data)
+        || (data.energyCost is number && data.energyCost >= 0 && data.energyCost <= 10);
+    }
+
     match /pacingActivities/{activityId} {
       allow read: if canAccessPacing();
       allow create: if canAccessPacing()
@@ -328,7 +338,9 @@ service cloud.firestore {
         && request.resource.data.title.size() <= 80
         && request.resource.data.titleKey is string
         && request.resource.data.description is string
-        && request.resource.data.description.size() <= 2000;
+        && request.resource.data.description.size() <= 2000
+        && validPacingKind(request.resource.data)
+        && validEnergyCost(request.resource.data);
       allow update: if canAccessPacing()
         && request.resource.data.authorUid == resource.data.authorUid
         && request.resource.data.title is string
@@ -336,7 +348,9 @@ service cloud.firestore {
         && request.resource.data.title.size() <= 80
         && request.resource.data.titleKey is string
         && request.resource.data.description is string
-        && request.resource.data.description.size() <= 2000;
+        && request.resource.data.description.size() <= 2000
+        && validPacingKind(request.resource.data)
+        && validEnergyCost(request.resource.data);
       allow delete: if canAccessPacing();
     }
 
@@ -358,7 +372,8 @@ service cloud.firestore {
         && request.resource.data.done is bool
         && request.resource.data.difficulty is number
         && request.resource.data.difficulty >= 0
-        && request.resource.data.difficulty <= 10;
+        && request.resource.data.difficulty <= 10
+        && validPacingKind(request.resource.data);
       allow update: if canAccessPacing()
         && request.resource.data.authorUid == resource.data.authorUid
         && request.resource.data.date == resource.data.date
@@ -373,7 +388,25 @@ service cloud.firestore {
         && request.resource.data.difficulty >= 0
         && request.resource.data.difficulty <= 10
         && request.resource.data.time is string
-        && request.resource.data.time.size() == 5;
+        && request.resource.data.time.size() == 5
+        && validPacingKind(request.resource.data);
+      allow delete: if canAccessPacing();
+    }
+
+    match /pacingDays/{dayId} {
+      allow read: if canAccessPacing();
+      allow create, update: if canAccessPacing()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.authorName is string
+        && request.resource.data.date == dayId
+        && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.energy is number
+        && request.resource.data.energy >= 0
+        && request.resource.data.energy <= 10
+        && request.resource.data.pem is bool
+        && request.resource.data.budget is number
+        && request.resource.data.budget >= 1
+        && request.resource.data.budget <= 80;
       allow delete: if canAccessPacing();
     }
   }

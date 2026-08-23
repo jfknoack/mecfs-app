@@ -112,4 +112,43 @@
     margin: 0;
     opacity: 0.8;
   }
+
+  &__group {
+    padding: 12px 4px 0;
+    list-style: none;
+  }
+
+  &__group-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font: var(--mat-sys-title-small);
+  }
+
+  &__cost-label {
+    margin: 0;
+    font: var(--mat-sys-label-large);
+  }
+
+  &__scores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__score {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    font: var(--mat-sys-label-large);
+
+    &--selected {
+      border-color: var(--mat-sys-on-surface);
+      box-shadow: 0 0 0 2px var(--mat-sys-surface);
+    }
+  }
 }

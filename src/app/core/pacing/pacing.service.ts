@@ -7,6 +7,7 @@ import {
   onSnapshot,
   runTransaction,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
   type DocumentData,
@@ -17,15 +18,20 @@ import { Auth } from '../auth/auth';
 import { firebaseDb, isFirebaseConfigured } from '../firebase/firebase-app';
 import { toNameKey } from '../lists/list.service';
 import {
+  clampBudget,
   clampDifficulty,
   comparePacingLogs,
   CreatePacingActivityInput,
   CreatePacingLogInput,
   isPacingLogToday,
+  normalizePacingKind,
   normalizePacingTime,
   nowTimeKey,
+  PACING_BUDGET_DEFAULT,
   PacingActivity,
+  PacingDay,
   PacingLog,
+  SavePacingDayInput,
 } from './pacing.model';
 
 export class DuplicatePacingActivityError extends Error {
@@ -37,7 +43,7 @@ export class DuplicatePacingActivityError extends Error {
 
 export class SameDayPacingError extends Error {
   constructor() {
-    super('Karten können nur am selben Tag erstellt und bearbeitet werden.');
+    super('Nur der heutige Tag kann geändert werden.');
     this.name = 'SameDayPacingError';
   }
 }
@@ -46,15 +52,20 @@ export class SameDayPacingError extends Error {
 export class PacingService {
   private readonly activitiesState = signal<PacingActivity[]>([]);
   private readonly logsState = signal<PacingLog[]>([]);
+  private readonly daysState = signal<PacingDay[]>([]);
   private readonly activitiesReadyState = signal(false);
   private readonly logsReadyState = signal(false);
+  private readonly daysReadyState = signal(false);
   private activitiesUnsub: Unsubscribe | null = null;
   private logsUnsub: Unsubscribe | null = null;
+  private daysUnsub: Unsubscribe | null = null;
 
   readonly activities = this.activitiesState.asReadonly();
   readonly logs = this.logsState.asReadonly();
+  readonly days = this.daysState.asReadonly();
   readonly activitiesReady = this.activitiesReadyState.asReadonly();
   readonly logsReady = this.logsReadyState.asReadonly();
+  readonly daysReady = this.daysReadyState.asReadonly();
 
   constructor(private readonly auth: Auth) {
     effect(() => {
@@ -64,14 +75,18 @@ export class PacingService {
         if (!isFirebaseConfigured() || !uid || !canSee) {
           this.stopWatchingActivities();
           this.stopWatchingLogs();
+          this.stopWatchingDays();
           this.activitiesState.set([]);
           this.logsState.set([]);
+          this.daysState.set([]);
           this.activitiesReadyState.set(true);
           this.logsReadyState.set(true);
+          this.daysReadyState.set(true);
           return;
         }
         this.watchActivities();
         this.watchLogs();
+        this.watchDays();
       });
     });
   }
@@ -84,10 +99,23 @@ export class PacingService {
     return this.logsState().find((log) => log.id === id);
   }
 
+  dayByDate(date: string): PacingDay | undefined {
+    return this.daysState().find((day) => day.date === date);
+  }
+
   logsOnDate(date: string): PacingLog[] {
     return this.logsState()
       .filter((log) => log.date === date)
       .sort(comparePacingLogs);
+  }
+
+  lastBudget(): number {
+    const latest = [...this.daysState()].sort((a, b) => b.date.localeCompare(a.date))[0];
+    return latest?.budget ?? PACING_BUDGET_DEFAULT;
+  }
+
+  budgetFor(date: string): number {
+    return this.dayByDate(date)?.budget ?? this.lastBudget();
   }
 
   async createActivity(input: CreatePacingActivityInput): Promise<string> {
@@ -115,6 +143,8 @@ export class PacingService {
         title,
         titleKey,
         description,
+        kind: normalizePacingKind(input.kind),
+        energyCost: clampDifficulty(input.energyCost),
         authorUid: uid,
         authorName: this.auth.username() ?? 'Unbekannt',
         createdAt: serverTimestamp(),
@@ -152,6 +182,8 @@ export class PacingService {
         title,
         titleKey,
         description,
+        kind: normalizePacingKind(input.kind),
+        energyCost: clampDifficulty(input.energyCost),
         updatedAt: serverTimestamp(),
       });
     });
@@ -174,6 +206,7 @@ export class PacingService {
       activityId: input.activity.id,
       title: input.activity.title,
       description: input.activity.description,
+      kind: normalizePacingKind(input.activity.kind),
       done: input.done,
       difficulty: clampDifficulty(input.difficulty),
       authorUid: uid,
@@ -201,6 +234,7 @@ export class PacingService {
       difficulty: clampDifficulty(patch.difficulty ?? log.difficulty),
       title: activity?.title ?? log.title,
       description: activity?.description ?? log.description,
+      kind: normalizePacingKind(activity?.kind ?? log.kind),
       activityId: activity?.id ?? log.activityId,
       date: log.date,
       time: time || nowTimeKey(),
@@ -214,6 +248,26 @@ export class PacingService {
     this.requirePacingAccess();
     this.requireSameDay(log.date);
     await deleteDoc(doc(firebaseDb(), 'pacingLogs', log.id));
+  }
+
+  async saveDay(input: SavePacingDayInput): Promise<void> {
+    const uid = this.requirePacingAccess();
+    this.requireSameDay(input.date);
+    const existing = this.dayByDate(input.date);
+    await setDoc(
+      doc(firebaseDb(), 'pacingDays', input.date),
+      {
+        date: input.date,
+        energy: clampDifficulty(input.energy),
+        pem: Boolean(input.pem),
+        budget: clampBudget(input.budget),
+        authorUid: uid,
+        authorName: this.auth.username() ?? 'Unbekannt',
+        updatedAt: serverTimestamp(),
+        ...(existing ? {} : { createdAt: serverTimestamp() }),
+      },
+      { merge: true },
+    );
   }
 
   private watchActivities(): void {
@@ -244,6 +298,18 @@ export class PacingService {
     );
   }
 
+  private watchDays(): void {
+    this.stopWatchingDays();
+    this.daysUnsub = onSnapshot(
+      collection(firebaseDb(), 'pacingDays'),
+      (snapshot) => {
+        this.daysState.set(snapshot.docs.map(toPacingDay));
+        this.daysReadyState.set(true);
+      },
+      () => this.daysReadyState.set(true),
+    );
+  }
+
   private stopWatchingActivities(): void {
     this.activitiesUnsub?.();
     this.activitiesUnsub = null;
@@ -252,6 +318,11 @@ export class PacingService {
   private stopWatchingLogs(): void {
     this.logsUnsub?.();
     this.logsUnsub = null;
+  }
+
+  private stopWatchingDays(): void {
+    this.daysUnsub?.();
+    this.daysUnsub = null;
   }
 
   private requireSameDay(date: string): void {
@@ -279,6 +350,8 @@ function toPacingActivity(snapshot: QueryDocumentSnapshot<DocumentData>): Pacing
     title: String(data['title'] ?? ''),
     titleKey: String(data['titleKey'] ?? ''),
     description: String(data['description'] ?? ''),
+    kind: normalizePacingKind(data['kind']),
+    energyCost: clampDifficulty(data['energyCost'] ?? 3),
     authorUid: String(data['authorUid'] ?? ''),
     authorName: String(data['authorName'] ?? ''),
     createdAt: toDate(data['createdAt']),
@@ -295,8 +368,24 @@ function toPacingLog(snapshot: QueryDocumentSnapshot<DocumentData>): PacingLog {
     activityId: String(data['activityId'] ?? data['itemId'] ?? ''),
     title: String(data['title'] ?? ''),
     description: String(data['description'] ?? ''),
+    kind: normalizePacingKind(data['kind']),
     done: Boolean(data['done']),
     difficulty: clampDifficulty(data['difficulty']),
+    authorUid: String(data['authorUid'] ?? ''),
+    authorName: String(data['authorName'] ?? ''),
+    createdAt: toDate(data['createdAt']),
+    updatedAt: toDate(data['updatedAt']),
+  };
+}
+
+function toPacingDay(snapshot: QueryDocumentSnapshot<DocumentData>): PacingDay {
+  const data = snapshot.data();
+  return {
+    id: snapshot.id,
+    date: String(data['date'] ?? snapshot.id),
+    energy: clampDifficulty(data['energy']),
+    pem: Boolean(data['pem']),
+    budget: clampBudget(data['budget']),
     authorUid: String(data['authorUid'] ?? ''),
     authorName: String(data['authorName'] ?? ''),
     createdAt: toDate(data['createdAt']),

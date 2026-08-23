@@ -14,8 +14,8 @@
       </button>
     </div>
     <p class="pacing-aktivitaeten__subtitle">
-      Eine Liste von Tätigkeiten, die du später im Kalender eintragen und nach Schwere bewerten
-      kannst.
+      Jede Tätigkeit bekommt eine Kategorie und einen typischen Preis. Ruhe füllt das Envelope
+      wieder auf.
     </p>
   </header>
 
@@ -23,107 +23,129 @@
     <p class="pacing-aktivitaeten__empty">Aktivitäten werden geladen…</p>
   } @else {
     <ul class="pacing-aktivitaeten__list">
-      @for (activity of activities(); track activity.id) {
+      @if (adding()) {
         <li class="pacing-aktivitaeten__item">
-          @if (isEditing(activity.id)) {
-            <form
-              class="pacing-aktivitaeten__form"
-              [formGroup]="form"
-              (submit)="saveForm(); $event.preventDefault()"
-            >
-              <mat-form-field appearance="outline">
-                <mat-label>Titel</mat-label>
-                <input
-                  matInput
-                  formControlName="title"
-                  maxlength="80"
-                  placeholder="z. B. 5 Minuten laufen"
-                />
-              </mat-form-field>
-              <mat-form-field appearance="outline">
-                <mat-label>Beschreibung (optional)</mat-label>
-                <textarea matInput formControlName="description" rows="2" maxlength="2000"></textarea>
-              </mat-form-field>
-              <div class="pacing-aktivitaeten__form-actions">
-                <button matButton type="button" (click)="closeForm()">Abbrechen</button>
-                <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
-              </div>
-            </form>
-          } @else {
-            <div class="pacing-aktivitaeten__item-body">
-              <p class="pacing-aktivitaeten__item-title">{{ activity.title }}</p>
-              @if (activity.description) {
-                <p class="pacing-aktivitaeten__item-text">{{ activity.description }}</p>
-              }
-              <p class="pacing-aktivitaeten__item-meta">
-                {{ activity.authorName }}
-                @if (activity.createdAt) {
-                  · {{ activity.createdAt | date: 'short' }}
-                }
-              </p>
-            </div>
-            <button
-              class="pacing-aktivitaeten__icon-btn"
-              type="button"
-              title="Bearbeiten"
-              aria-label="Bearbeiten"
-              (click)="openEdit(activity.id)"
-            >
-              <i
-                class="pacing-aktivitaeten__icon"
-                [ngClass]="iconClass('pen-to-square')"
-                aria-hidden="true"
-              ></i>
-            </button>
-            <button
-              class="pacing-aktivitaeten__icon-btn pacing-aktivitaeten__icon-btn--danger"
-              type="button"
-              title="Löschen"
-              aria-label="Löschen"
-              (click)="deleteActivity(activity.id)"
-            >
-              <i
-                class="pacing-aktivitaeten__icon"
-                [ngClass]="iconClass('trash-can')"
-                aria-hidden="true"
-              ></i>
-            </button>
-          }
+          <ng-container *ngTemplateOutlet="activityForm" />
         </li>
+      }
+      @for (group of groups(); track group.value) {
+        <li class="pacing-aktivitaeten__group">
+          <h2 class="pacing-aktivitaeten__group-title">
+            <i
+              class="pacing-aktivitaeten__icon"
+              [ngClass]="iconClass(group.icon)"
+              aria-hidden="true"
+            ></i>
+            {{ group.label }}
+          </h2>
+        </li>
+        @for (activity of group.items; track activity.id) {
+          <li class="pacing-aktivitaeten__item">
+            @if (isEditing(activity.id)) {
+              <ng-container *ngTemplateOutlet="activityForm" />
+            } @else {
+              <div class="pacing-aktivitaeten__item-body">
+                <p class="pacing-aktivitaeten__item-title">{{ activity.title }}</p>
+                @if (activity.description) {
+                  <p class="pacing-aktivitaeten__item-text">{{ activity.description }}</p>
+                }
+                <p class="pacing-aktivitaeten__item-meta">
+                  typisch {{ activity.energyCost }}
+                  @if (averageOf(activity) !== activity.energyCost) {
+                    · zuletzt Ø {{ averageOf(activity) }}
+                  }
+                  @if (activity.createdAt) {
+                    · {{ activity.createdAt | date: 'short' }}
+                  }
+                </p>
+              </div>
+              <button
+                class="pacing-aktivitaeten__icon-btn"
+                type="button"
+                title="Bearbeiten"
+                aria-label="Bearbeiten"
+                (click)="openEdit(activity.id)"
+              >
+                <i
+                  class="pacing-aktivitaeten__icon"
+                  [ngClass]="iconClass('pen-to-square')"
+                  aria-hidden="true"
+                ></i>
+              </button>
+              <button
+                class="pacing-aktivitaeten__icon-btn pacing-aktivitaeten__icon-btn--danger"
+                type="button"
+                title="Löschen"
+                aria-label="Löschen"
+                (click)="deleteActivity(activity.id)"
+              >
+                <i
+                  class="pacing-aktivitaeten__icon"
+                  [ngClass]="iconClass('trash-can')"
+                  aria-hidden="true"
+                ></i>
+              </button>
+            }
+          </li>
+        }
       } @empty {
         @if (!adding()) {
           <li class="pacing-aktivitaeten__empty">
-            Noch keine Aktivitäten. Plus drücken, z. B. „5 Minuten Musik hören“.
+            Noch keine Aktivitäten. Plus drücken, z. B. „Duschen“ oder „20 Minuten liegen“.
           </li>
         }
-      }
-      @if (adding()) {
-        <li class="pacing-aktivitaeten__item">
-          <form
-            class="pacing-aktivitaeten__form"
-            [formGroup]="form"
-            (submit)="saveForm(); $event.preventDefault()"
-          >
-            <mat-form-field appearance="outline">
-              <mat-label>Titel</mat-label>
-              <input
-                matInput
-                formControlName="title"
-                maxlength="80"
-                placeholder="z. B. 5 Minuten laufen"
-              />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Beschreibung (optional)</mat-label>
-              <textarea matInput formControlName="description" rows="2" maxlength="2000"></textarea>
-            </mat-form-field>
-            <div class="pacing-aktivitaeten__form-actions">
-              <button matButton type="button" (click)="closeForm()">Abbrechen</button>
-              <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
-            </div>
-          </form>
-        </li>
       }
     </ul>
   }
 </section>
+
+<ng-template #activityForm>
+  <form
+    class="pacing-aktivitaeten__form"
+    [formGroup]="form"
+    (submit)="saveForm(); $event.preventDefault()"
+  >
+    <mat-form-field appearance="outline">
+      <mat-label>Titel</mat-label>
+      <input
+        matInput
+        formControlName="title"
+        maxlength="80"
+        placeholder="z. B. 5 Minuten liegen"
+      />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Kategorie</mat-label>
+      <mat-select formControlName="kind">
+        @for (option of kindOptions; track option.value) {
+          <mat-option [value]="option.value">{{ option.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Beschreibung (optional)</mat-label>
+      <textarea matInput formControlName="description" rows="2" maxlength="2000"></textarea>
+    </mat-form-field>
+    <p class="pacing-aktivitaeten__cost-label">
+      Typischer Preis {{ form.getRawValue().energyCost }}
+    </p>
+    <div class="pacing-aktivitaeten__scores">
+      @for (option of difficultyOptions; track option.value) {
+        <button
+          class="pacing-aktivitaeten__score"
+          type="button"
+          [class.pacing-aktivitaeten__score--selected]="form.getRawValue().energyCost === option.value"
+          [style.background]="colorOf(option.value)"
+          [style.color]="contrastOf(option.value)"
+          (click)="selectCost(option.value)"
+        >
+          {{ option.label }}
+        </button>
+      }
+    </div>
+    <div class="pacing-aktivitaeten__form-actions">
+      <button matButton type="button" (click)="closeForm()">Abbrechen</button>
+      <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+    </div>
+  </form>
+</ng-template>

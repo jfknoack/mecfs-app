@@ -21,10 +21,23 @@
       </button>
     </div>
     <p class="pacing__text">
-      Was habe ich heute getan, und wie schwer war es? 0 ist leicht, 10 sehr schwer. Gestern und
-      Vorgestern bleiben sichtbar, lassen sich aber nicht mehr ändern.
+      Envelope für heute: Aktivitäten kosten Energie, Pausen geben sie zurück. Gestern und
+      Vorgestern bleiben sichtbar, weil PEM oft erst 24–48 Stunden später kommt.
     </p>
   </header>
+
+  <div class="pacing__week" aria-label="Woche">
+    @for (day of weekDays(); track day.key) {
+      <div
+        class="pacing__week-day"
+        [class.pacing__week-day--today]="day.today"
+        [class.pacing__week-day--empty]="!day.zone"
+        [style.--pacing-zone]="day.zone ? zoneColor(day.zone) : 'var(--mat-sys-outline-variant)'"
+      >
+        <span>{{ day.weekday }}</span>
+      </div>
+    }
+  </div>
 
   <div class="pacing__board">
     @for (column of columns(); track column.key) {
@@ -37,17 +50,71 @@
           <h2 class="pacing__column-title">{{ column.name }}</h2>
           <p class="pacing__column-date">{{ formatDateLabel(column.key) }}</p>
         </header>
+
+        <button
+          class="pacing__checkin"
+          type="button"
+          (click)="openDay(column.key)"
+        >
+          @if (column.day) {
+            <span>Energie {{ column.day.energy }}/10</span>
+            @if (column.day.pem) {
+              <span class="pacing__pem">PEM</span>
+            }
+          } @else {
+            <span>{{ column.today ? 'Check-in für heute' : 'Kein Check-in' }}</span>
+          }
+        </button>
+
+        <div
+          class="pacing__envelope"
+          [style.--pacing-zone]="zoneColor(column.balance.zone)"
+        >
+          <div class="pacing__envelope-meta">
+            <span>
+              {{ column.balance.net }} / {{ column.balance.budget }}
+              @if (column.balance.rest) {
+                · Rest +{{ column.balance.rest }}
+              }
+            </span>
+            <span>{{ column.balance.zoneLabel }}</span>
+          </div>
+          <div class="pacing__envelope-track" aria-hidden="true">
+            <span class="pacing__envelope-fill" [style.width.%]="column.balance.usedPercent"></span>
+          </div>
+        </div>
+
+        @if (column.hint) {
+          <p class="pacing__hint pacing__hint--warn">{{ column.hint }}</p>
+        }
+
+        @if (column.today && shortcuts().length) {
+          <div class="pacing__chips">
+            @for (activity of shortcuts(); track activity.id) {
+              <button
+                class="pacing__chip"
+                type="button"
+                (click)="openCreate(activity.id)"
+              >
+                <i [ngClass]="iconClass(kindIcon(activity.kind))" aria-hidden="true"></i>
+                {{ activity.title }}
+              </button>
+            }
+          </div>
+        }
+
         <div class="pacing__cards">
           @if (!logsReady()) {
             <p class="pacing__hint">Karten werden geladen…</p>
           } @else {
-            @for (log of logsFor(column.key); track log.id) {
+            @for (log of column.logs; track log.id) {
               <article
                 class="pacing-card"
                 [class.pacing-card--open]="!log.done"
                 [class.pacing-card--past]="!column.today"
-                [style.--pacing-card-color]="colorOf(log.difficulty)"
-                [style.--pacing-card-contrast]="contrastOf(log.difficulty)"
+                [class.pacing-card--rest]="isRest(log.kind)"
+                [style.--pacing-card-color]="isRest(log.kind) ? '#00838f' : colorOf(log.difficulty)"
+                [style.--pacing-card-contrast]="isRest(log.kind) ? '#ffffff' : contrastOf(log.difficulty)"
                 tabindex="0"
                 role="button"
                 (click)="openEdit(log)"
@@ -56,15 +123,23 @@
                 <div class="pacing-card__accent" aria-hidden="true"></div>
                 <div class="pacing-card__head">
                   <h3 class="pacing-card__title">{{ log.title }}</h3>
+                  <span class="pacing-card__cost">{{ costOf(log.kind) }}{{ log.difficulty }}</span>
                 </div>
-                @if (log.time) {
-                  <p class="pacing-card__meta">{{ log.time }}</p>
-                }
+                <p class="pacing-card__meta">
+                  @if (log.time) {
+                    {{ log.time }} ·
+                  }
+                  {{ kindLabel(log.kind) }}
+                </p>
                 @if (log.description) {
                   <p class="pacing-card__text">{{ log.description }}</p>
                 }
                 <p class="pacing-card__label">
-                  Schwere {{ log.difficulty }} · {{ difficultyText(log.difficulty) }}
+                  @if (isRest(log.kind)) {
+                    {{ restText(log.difficulty) }}
+                  } @else {
+                    {{ difficultyText(log.difficulty) }}
+                  }
                   @if (!log.done) {
                     · offen
                   }
@@ -73,7 +148,7 @@
             } @empty {
               <p class="pacing__hint">
                 @if (column.today) {
-                  Noch nichts für heute. Plus drücken und eintragen, was du getan hast.
+                  Noch nichts für heute. Unten eine häufige Aktivität antippen oder Plus drücken.
                 } @else {
                   Nichts eingetragen.
                 }
@@ -86,7 +161,7 @@
   </div>
 </section>
 
-@if (showPopover()) {
+@if (popover() === 'log') {
   <div class="pacing-popover" role="presentation">
     <button
       class="pacing-popover__backdrop"
@@ -99,7 +174,9 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="pacing-popover-title"
-      [style.--pacing-popover-accent]="colorOf(form.controls.difficulty.value)"
+      [style.--pacing-popover-accent]="
+        selectedRest() ? '#00838f' : colorOf(form.controls.difficulty.value)
+      "
     >
       <div class="pacing-popover__accent" aria-hidden="true"></div>
       <header class="pacing-popover__header">
@@ -119,10 +196,10 @@
           <p class="pacing__hint">
             Zuerst in der
             <a class="pacing__link" routerLink="/pacing/aktivitaeten">Aktivitätenliste</a>
-            Einträge anlegen, z. B. „5 Minuten laufen“.
+            Einträge anlegen, z. B. „5 Minuten liegen“ als Ruhe.
           </p>
         } @else {
-          @if (popoverEditable()) {
+          @if (logEditable()) {
             <p class="pacing__hint">
               Die Uhrzeit ist mit jetzt vorbelegt. Nur heutige Karten können gespeichert oder
               geändert werden.
@@ -136,16 +213,27 @@
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Aktivität</mat-label>
-            <mat-select formControlName="activityId">
-              @for (activity of activities(); track activity.id) {
-                <mat-option [value]="activity.id">{{ activity.title }}</mat-option>
+            <mat-select formControlName="activityId" (selectionChange)="onActivityChange($event.value)">
+              @for (group of activityGroups(); track group.value) {
+                <mat-optgroup [label]="group.label">
+                  @for (activity of group.items; track activity.id) {
+                    <mat-option [value]="activity.id">
+                      {{ activity.title }} · {{ activity.energyCost }}
+                    </mat-option>
+                  }
+                </mat-optgroup>
               }
             </mat-select>
           </mat-form-field>
           <mat-checkbox formControlName="done">Erledigt</mat-checkbox>
           <p class="pacing__label">
-            Wie schwer war es? {{ form.getRawValue().difficulty }} ·
-            {{ difficultyText(form.getRawValue().difficulty) }}
+            @if (selectedRest()) {
+              Wie viel hat die Pause zurückgegeben? {{ form.getRawValue().difficulty }} ·
+              {{ restText(form.getRawValue().difficulty) }}
+            } @else {
+              Wie teuer war es? {{ form.getRawValue().difficulty }} ·
+              {{ difficultyText(form.getRawValue().difficulty) }}
+            }
           </p>
           <div class="pacing__scores">
             @for (option of difficultyOptions; track option.value) {
@@ -162,19 +250,87 @@
             }
           </div>
           <div class="pacing-popover__actions">
-            @if (editingLog() && popoverEditable()) {
+            @if (editingLog() && logEditable()) {
               <button matButton type="button" [disabled]="saving()" (click)="deleteEditing()">
                 Löschen
               </button>
             }
             <span class="pacing-popover__spacer"></span>
-            @if (popoverEditable()) {
+            @if (logEditable()) {
               <button matButton="filled" type="submit" [disabled]="saving() || !activities().length">
                 Speichern
               </button>
             }
           </div>
         }
+      </form>
+    </div>
+  </div>
+}
+
+@if (popover() === 'day') {
+  <div class="pacing-popover" role="presentation">
+    <button
+      class="pacing-popover__backdrop"
+      type="button"
+      aria-label="Schließen"
+      (click)="closePopover()"
+    ></button>
+    <div
+      class="pacing-popover__panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pacing-day-title"
+    >
+      <header class="pacing-popover__header">
+        <h2 id="pacing-day-title" class="pacing-popover__title">{{ popoverTitle() }}</h2>
+        <button
+          class="pacing-popover__close"
+          type="button"
+          title="Schließen"
+          aria-label="Schließen"
+          (click)="closePopover()"
+        >
+          <i class="pacing-popover__icon" [ngClass]="iconClass('xmark')" aria-hidden="true"></i>
+        </button>
+      </header>
+      <form class="pacing-popover__form" [formGroup]="dayForm" (ngSubmit)="saveDay()">
+        @if (dayEditable()) {
+          <p class="pacing__hint">
+            Wie voll ist der Tank heute früh? Das Budget gilt für den ganzen Tag, Pausen füllen
+            wieder auf.
+          </p>
+        } @else {
+          <p class="pacing__hint">Dieser Check-in kann nicht mehr geändert werden.</p>
+        }
+        <p class="pacing__label">
+          Energie morgens {{ dayForm.getRawValue().energy }}/10
+        </p>
+        <div class="pacing__scores">
+          @for (option of difficultyOptions; track option.value) {
+            <button
+              class="pacing__score"
+              type="button"
+              [class.pacing__score--selected]="dayForm.getRawValue().energy === option.value"
+              [style.background]="colorOf(option.value)"
+              [style.color]="contrastOf(option.value)"
+              (click)="selectEnergy(option.value)"
+            >
+              {{ option.label }}
+            </button>
+          }
+        </div>
+        <mat-form-field appearance="outline">
+          <mat-label>Tagesbudget</mat-label>
+          <input matInput type="number" min="1" max="80" formControlName="budget" />
+        </mat-form-field>
+        <mat-checkbox formControlName="pem">PEM / Crash heute</mat-checkbox>
+        <div class="pacing-popover__actions">
+          <span class="pacing-popover__spacer"></span>
+          @if (dayEditable()) {
+            <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+          }
+        </div>
       </form>
     </div>
   </div>
