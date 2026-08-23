@@ -1,27 +1,48 @@
 <section class="budget">
   <header class="budget__header">
     <div class="budget__heading">
-      <i class="budget__title-icon" [ngClass]="iconClass('wallet')" aria-hidden="true"></i>
-      <div>
-        <h1 class="budget__title">{{ title }}</h1>
-        <p class="budget__subtitle">
-          Monatliche Kalkulation von Einkommen und Ausgaben.
-          @if (!isAdmin()) {
-            Du siehst die Übersicht; erfassen können nur Admins.
-          }
-        </p>
-      </div>
+      <h1 class="budget__title">{{ title }}</h1>
+      @if (canCreate()) {
+        <button
+          class="budget__icon-btn"
+          type="button"
+          title="Monat hinzufügen"
+          aria-label="Monat hinzufügen"
+          (click)="toggleCreate()"
+        >
+          <i class="budget__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+        </button>
+      }
     </div>
-    <div class="budget__year-nav">
-      <button matIconButton type="button" aria-label="Vorheriges Jahr" (click)="shiftYear(-1)">
-        <mat-icon>chevron_left</mat-icon>
-      </button>
-      <p class="budget__year">{{ selectedYear() }}</p>
-      <button matIconButton type="button" aria-label="Nächstes Jahr" (click)="shiftYear(1)">
-        <mat-icon>chevron_right</mat-icon>
-      </button>
-    </div>
+    <p class="budget__subtitle">
+      Monatliche Kalkulation von Einkommen und Ausgaben.
+      @if (!isAdmin()) {
+        Du siehst die Übersicht; erfassen können nur Admins.
+      }
+    </p>
   </header>
+
+  <div class="budget__year-nav">
+    <button
+      matIconButton
+      type="button"
+      aria-label="Vorheriges Jahr"
+      [disabled]="!canShiftYear(-1)"
+      (click)="shiftYear(-1)"
+    >
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <p class="budget__year">{{ selectedYear() }}</p>
+    <button
+      matIconButton
+      type="button"
+      aria-label="Nächstes Jahr"
+      [disabled]="!canShiftYear(1)"
+      (click)="shiftYear(1)"
+    >
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
 
   <div class="budget__totals">
     <article class="budget__total budget__total--income">
@@ -53,46 +74,75 @@
 
   <div class="budget__grid">
     @if (!monthsReady()) {
-      <p class="budget__empty">Jahresübersicht wird geladen…</p>
+      <p class="budget__empty">Monate werden geladen…</p>
     } @else {
       @for (card of yearCards(); track card.yearMonth) {
         <a
-          class="budget__month"
-          [class.budget__month--current]="card.isCurrent"
+          class="budget__card"
+          [class.budget__card--current]="card.isCurrent"
           [routerLink]="['/budget', selectedYear(), card.month]"
         >
-          <div class="budget__month-head">
-            <h2 class="budget__month-title">{{ card.label }}</h2>
-            @if (card.isCurrent) {
-              <span class="budget__month-badge">Aktuell</span>
-            }
-          </div>
-          <p
-            class="budget__month-balance"
-            [class.budget__month-balance--positive]="card.balance >= 0"
-            [class.budget__month-balance--negative]="card.balance < 0"
-          >
-            {{ formatEuro(card.balance) }}
-          </p>
-          <dl class="budget__month-stats">
-            <div>
-              <dt class="budget__stat-label">Einkommen</dt>
-              <dd class="budget__stat-value">{{ formatEuro(card.income) }}</dd>
+          <i class="budget__card-icon" [ngClass]="iconClass('calendar-days')" aria-hidden="true"></i>
+          <div class="budget__card-body">
+            <div class="budget__card-head">
+              <h2 class="budget__card-title">{{ card.label }}</h2>
+              @if (card.isCurrent) {
+                <span class="budget__card-badge">Aktuell</span>
+              }
             </div>
-            <div>
-              <dt class="budget__stat-label">Ausgaben</dt>
-              <dd class="budget__stat-value">{{ formatEuro(card.expense) }}</dd>
+            <p
+              class="budget__card-balance"
+              [class.budget__card-balance--positive]="card.balance >= 0"
+              [class.budget__card-balance--negative]="card.balance < 0"
+            >
+              {{ formatEuro(card.balance) }}
+            </p>
+            <p class="budget__card-meta">
+              {{ formatEuro(card.income) }} Einkommen · {{ formatEuro(card.expense) }} Ausgaben
+            </p>
+            <div class="budget__bar" [attr.aria-label]="'Ausgabenanteil ' + card.usage + ' %'">
+              <span
+                class="budget__bar-fill"
+                [class.budget__bar-fill--high]="card.usage >= 80"
+                [style.width.%]="card.usage"
+              ></span>
             </div>
-          </dl>
-          <div class="budget__bar" [attr.aria-label]="'Ausgabenanteil ' + card.usage + ' %'">
-            <span
-              class="budget__bar-fill"
-              [class.budget__bar-fill--high]="card.usage >= 80"
-              [style.width.%]="card.usage"
-            ></span>
           </div>
         </a>
+      } @empty {
+        <p class="budget__empty">Keine Monate in diesem Jahr.</p>
       }
     }
   </div>
+
+  @if (isAdmin() && showCreate()) {
+    <form class="budget__create" [formGroup]="form" (ngSubmit)="createMonth()">
+      <h2 class="budget__create-title">Neuen Monat anlegen</h2>
+      <p class="budget__create-hint">Nur vergangene Monate. Der aktuelle Monat wird automatisch angelegt.</p>
+      <div class="budget__create-row">
+        <mat-form-field appearance="outline">
+          <mat-label>Jahr</mat-label>
+          <mat-select formControlName="year" (selectionChange)="onCreateYearChange($event.value)">
+            @for (year of createYears(); track year) {
+              <mat-option [value]="year">{{ year }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Monat</mat-label>
+          <mat-select formControlName="month">
+            @for (month of createMonths(); track month) {
+              <mat-option [value]="month">{{ monthLabel(month) }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <div class="budget__create-actions">
+        <button matButton type="button" (click)="showCreate.set(false)">Abbrechen</button>
+        <button matButton="filled" type="submit" [disabled]="saving() || form.controls.month.value < 1">
+          Speichern
+        </button>
+      </div>
+    </form>
+  }
 </section>

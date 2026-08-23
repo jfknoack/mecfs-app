@@ -1,8 +1,12 @@
 <section class="budget-month">
-  <a class="budget-month__back" routerLink="/budget">Zurück zur Jahresübersicht</a>
+  <a class="budget-month__back" routerLink="/budget">Zurück zum Budget</a>
 
   @if (!valid) {
     <p class="budget-month__empty">Ungültiger Monat.</p>
+  } @else if (isFuture) {
+    <p class="budget-month__empty">Monate in der Zukunft werden nicht angelegt.</p>
+  } @else if (monthsReady() && !monthExists()) {
+    <p class="budget-month__empty">Dieser Monat wurde noch nicht angelegt.</p>
   } @else {
     <header class="budget-month__header">
       <div class="budget-month__heading">
@@ -10,7 +14,7 @@
         <div>
           <div class="budget-month__title-row">
             <h1 class="budget-month__title">{{ monthTitle }}</h1>
-            @if (isAdmin()) {
+            @if (isAdmin() && monthExists()) {
               <button
                 class="budget-month__icon-btn"
                 type="button"

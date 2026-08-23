@@ -293,13 +293,23 @@ service cloud.firestore {
 
     match /budgetMonths/{monthId} {
       allow read: if isMember();
-      allow create, update: if isAdmin()
+      allow create: if isAdmin()
         && request.resource.data.year is number
         && request.resource.data.year >= 2020
-        && request.resource.data.year <= 2100
+        && request.resource.data.year <= request.time.year()
         && request.resource.data.month is number
         && request.resource.data.month >= 1
         && request.resource.data.month <= 12
+        && (
+          request.resource.data.year < request.time.year()
+          || request.resource.data.month <= request.time.month()
+        )
+        && request.resource.data.yearMonth == monthId
+        && request.resource.data.incomeTotal is number
+        && request.resource.data.expenseTotal is number;
+      allow update: if isAdmin()
+        && request.resource.data.year == resource.data.year
+        && request.resource.data.month == resource.data.month
         && request.resource.data.yearMonth == monthId
         && request.resource.data.incomeTotal is number
         && request.resource.data.expenseTotal is number;

@@ -3,11 +3,9 @@ import {
   collection,
   doc,
   onSnapshot,
-  query,
   runTransaction,
   serverTimestamp,
   Timestamp,
-  where,
   type DocumentData,
   type QueryDocumentSnapshot,
   type Unsubscribe,
@@ -20,9 +18,20 @@ import {
   BudgetKind,
   BudgetMonth,
   CreateBudgetEntryInput,
+  isCurrentMonth,
+  isFutureMonth,
+  isValidCalendarMonth,
+  monthLabel,
   roundCents,
   toYearMonth,
 } from './budget.model';
+
+export class DuplicateBudgetMonthError extends Error {
+  constructor(year: number, month: number) {
+    super(`${monthLabel(month)} ${year} existiert bereits.`);
+    this.name = 'DuplicateBudgetMonthError';
+  }
+}
 
 @Injectable({ providedIn: 'root' })
 export class BudgetService {
@@ -32,10 +41,9 @@ export class BudgetService {
   private readonly entriesReadyState = signal(false);
   private monthsUnsub: Unsubscribe | null = null;
   private entriesUnsub: Unsubscribe | null = null;
-  private desiredYear: number | null = null;
   private desiredYearMonth: string | null = null;
-  private watchedYear: number | null = null;
   private watchedYearMonth: string | null = null;
+  private ensuringCurrentMonth = false;
 
   readonly months = this.monthsState.asReadonly();
   readonly monthsReady = this.monthsReadyState.asReadonly();
@@ -59,18 +67,14 @@ export class BudgetService {
         this.attachEntries();
       });
     });
-  }
 
-  watchMonths(year: number): void {
-    this.desiredYear = year;
-    this.attachMonths();
-  }
-
-  stopWatchingMonths(): void {
-    this.desiredYear = null;
-    this.detachMonths();
-    this.monthsState.set([]);
-    this.monthsReadyState.set(false);
+    effect(() => {
+      const isAdmin = this.auth.isAdmin();
+      const ready = this.monthsReadyState();
+      if (isAdmin && ready) {
+        untracked(() => void this.ensureCurrentMonth());
+      }
+    });
   }
 
   watchEntries(yearMonth: string): void {
@@ -86,16 +90,9 @@ export class BudgetService {
   }
 
   private attachMonths(): void {
-    const year = this.desiredYear;
-    if (year === null) {
+    if (this.monthsUnsub) {
       return;
     }
-    if (this.watchedYear === year && this.monthsUnsub) {
-      return;
-    }
-
-    this.detachMonths();
-    this.watchedYear = year;
 
     if (!isFirebaseConfigured() || !this.auth.uid()) {
       this.monthsState.set([]);
@@ -105,13 +102,14 @@ export class BudgetService {
 
     const monthsRef = collection(firebaseDb(), 'budgetMonths');
     this.monthsUnsub = onSnapshot(
-      query(monthsRef, where('year', '==', year)),
+      monthsRef,
       (snapshot) => {
         const months = snapshot.docs
           .map((item) => toBudgetMonth(item))
-          .sort((a, b) => a.month - b.month);
+          .sort((a, b) => b.year - a.year || b.month - a.month);
         this.monthsState.set(months);
         this.monthsReadyState.set(true);
+        void this.ensureCurrentMonth();
       },
       () => this.monthsReadyState.set(true),
     );
@@ -120,7 +118,6 @@ export class BudgetService {
   private detachMonths(): void {
     this.monthsUnsub?.();
     this.monthsUnsub = null;
-    this.watchedYear = null;
   }
 
   private attachEntries(): void {
@@ -165,6 +162,59 @@ export class BudgetService {
     return this.monthsState().find((month) => month.id === yearMonth);
   }
 
+  async ensureCurrentMonth(): Promise<void> {
+    if (this.ensuringCurrentMonth || !this.auth.isAdmin() || !isFirebaseConfigured()) {
+      return;
+    }
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    if (this.monthById(toYearMonth(year, month))) {
+      return;
+    }
+
+    this.ensuringCurrentMonth = true;
+    try {
+      await this.createMonth(year, month);
+    } catch {
+      // Auto-create may race or fail for non-admins; the + flow remains available.
+    } finally {
+      this.ensuringCurrentMonth = false;
+    }
+  }
+
+  async createMonth(year: number, month: number): Promise<string> {
+    this.requireAdmin();
+    if (!isValidCalendarMonth(year, month)) {
+      throw new Error('Bitte einen gültigen Monat wählen.');
+    }
+    if (isFutureMonth(year, month)) {
+      throw new Error('Monate in der Zukunft können nicht angelegt werden.');
+    }
+
+    const yearMonth = toYearMonth(year, month);
+    const monthRef = doc(firebaseDb(), 'budgetMonths', yearMonth);
+
+    await runTransaction(firebaseDb(), async (transaction) => {
+      const existing = await transaction.get(monthRef);
+      if (existing.exists()) {
+        throw new DuplicateBudgetMonthError(year, month);
+      }
+
+      transaction.set(monthRef, {
+        year,
+        month,
+        yearMonth,
+        incomeTotal: 0,
+        expenseTotal: 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    });
+
+    return yearMonth;
+  }
+
   async addEntry(input: CreateBudgetEntryInput): Promise<void> {
     this.requireAdmin();
     const uid = this.requireUid();
@@ -176,6 +226,9 @@ export class BudgetService {
     }
     if (!(amount > 0)) {
       throw new Error('Bitte einen Betrag größer 0 angeben.');
+    }
+    if (!isValidCalendarMonth(input.year, input.month) || isFutureMonth(input.year, input.month)) {
+      throw new Error('Buchungen sind nur für angelegte Monate bis zum aktuellen Monat möglich.');
     }
 
     const yearMonth = toYearMonth(input.year, input.month);
@@ -194,7 +247,7 @@ export class BudgetService {
           expenseTotal: roundCents(numberOrZero(data['expenseTotal']) + expenseDelta),
           updatedAt: serverTimestamp(),
         });
-      } else {
+      } else if (isCurrentMonth(input.year, input.month)) {
         transaction.set(monthRef, {
           year: input.year,
           month: input.month,
@@ -204,6 +257,8 @@ export class BudgetService {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
+      } else {
+        throw new Error('Dieser Monat wurde noch nicht angelegt.');
       }
 
       transaction.set(entryRef, {
@@ -248,15 +303,11 @@ export class BudgetService {
         Math.max(0, numberOrZero(data['expenseTotal']) - (kind === 'expense' ? amount : 0)),
       );
 
-      if (incomeTotal <= 0 && expenseTotal <= 0) {
-        transaction.delete(monthRef);
-      } else {
-        transaction.update(monthRef, {
-          incomeTotal,
-          expenseTotal,
-          updatedAt: serverTimestamp(),
-        });
-      }
+      transaction.update(monthRef, {
+        incomeTotal,
+        expenseTotal,
+        updatedAt: serverTimestamp(),
+      });
     });
   }
 

@@ -18,6 +18,7 @@ import {
   BudgetCategory,
   BudgetKind,
   formatEuro,
+  isFutureMonth,
   monthLabel,
   parseEuro,
   toYearMonth,
@@ -52,6 +53,7 @@ export class BudgetMonth {
   protected readonly formatEuro = formatEuro;
   protected readonly isAdmin = this.auth.isAdmin;
   protected readonly entriesReady = this.budget.entriesReady;
+  protected readonly monthsReady = this.budget.monthsReady;
   protected readonly saving = signal(false);
   protected readonly showCreate = signal(false);
   protected readonly kind = signal<BudgetKind>('income');
@@ -67,6 +69,14 @@ export class BudgetMonth {
     this.month >= 1 &&
     this.month <= 12;
   protected readonly monthTitle = this.valid ? `${monthLabel(this.month)} ${this.year}` : 'Monat';
+  protected readonly isFuture = this.valid && isFutureMonth(this.year, this.month);
+  protected readonly monthExists = computed(() => {
+    if (!this.valid) {
+      return false;
+    }
+    const yearMonth = toYearMonth(this.year, this.month);
+    return this.budget.months().some((item) => item.yearMonth === yearMonth);
+  });
 
   protected readonly form = this.formBuilder.nonNullable.group({
     kind: this.formBuilder.nonNullable.control<BudgetKind>('income'),
@@ -139,6 +149,9 @@ export class BudgetMonth {
   }
 
   protected toggleCreate(): void {
+    if (!this.monthExists()) {
+      return;
+    }
     const next = !this.showCreate();
     this.showCreate.set(next);
     if (next) {
@@ -147,7 +160,7 @@ export class BudgetMonth {
   }
 
   protected async saveEntry(): Promise<void> {
-    if (!this.valid || !this.isAdmin()) {
+    if (!this.valid || !this.isAdmin() || !this.monthExists()) {
       return;
     }
     if (this.form.invalid) {
