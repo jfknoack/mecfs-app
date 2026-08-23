@@ -10,6 +10,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Restore src folder layout
+        run: |
+          mkdir -p src/app src/environments
+          for f in main.ts styles.scss index.html; do
+            if [ -f "$f" ]; then
+              cp -f "$f" "src/$f"
+            fi
+          done
+          if [ -d environments ]; then
+            cp -a environments/. src/environments/
+          fi
+          if [ -d app ]; then
+            cp -a app/. src/app/
+          fi
+          test -f src/main.ts
+          test -f src/styles.scss
+          test -f src/environments/environment.ts
+          test -d src/app/pages/routinen
+          test -d src/app/pages/rezepte
+          test -d src/app/pages/pacing
       - uses: actions/setup-node@v5
         with:
           node-version: 22
