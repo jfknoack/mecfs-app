@@ -14,7 +14,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - name: Install dependencies
+        env:
+          npm_config_registry: https://registry.npmjs.org/
+          npm_config_replace_registry_host: always
+        run: npm ci
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
