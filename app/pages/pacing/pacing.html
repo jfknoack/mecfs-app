@@ -1,0 +1,181 @@
+<section class="pacing">
+  <header class="pacing__header">
+    <div class="pacing__heading">
+      <h1 class="pacing__title">{{ title }}</h1>
+      <a
+        class="pacing__icon-btn"
+        routerLink="/pacing/aktivitaeten"
+        title="Aktivitäten"
+        aria-label="Aktivitäten"
+      >
+        <i class="pacing__icon" [ngClass]="iconClass('list')" aria-hidden="true"></i>
+      </a>
+      <button
+        class="pacing__icon-btn"
+        type="button"
+        title="Heute eintragen"
+        aria-label="Heute eintragen"
+        (click)="toggleAdd()"
+      >
+        <i class="pacing__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="pacing__text">
+      Was habe ich heute getan, und wie schwer war es? 0 ist leicht, 10 sehr schwer. Gestern und
+      Vorgestern bleiben sichtbar, lassen sich aber nicht mehr ändern.
+    </p>
+  </header>
+
+  <div class="pacing__board">
+    @for (column of columns(); track column.key) {
+      <section
+        class="pacing__column"
+        [class.pacing__column--today]="column.today"
+        [class.pacing__column--past]="!column.today"
+      >
+        <header class="pacing__column-head">
+          <h2 class="pacing__column-title">{{ column.name }}</h2>
+          <p class="pacing__column-date">{{ formatDateLabel(column.key) }}</p>
+        </header>
+        <div class="pacing__cards">
+          @if (!logsReady()) {
+            <p class="pacing__hint">Karten werden geladen…</p>
+          } @else {
+            @for (log of logsFor(column.key); track log.id) {
+              <article
+                class="pacing-card"
+                [class.pacing-card--open]="!log.done"
+                [class.pacing-card--past]="!column.today"
+                [style.--pacing-card-color]="colorOf(log.difficulty)"
+                [style.--pacing-card-contrast]="contrastOf(log.difficulty)"
+                tabindex="0"
+                role="button"
+                (click)="openEdit(log)"
+                (keydown.enter)="openEdit(log)"
+              >
+                <div class="pacing-card__accent" aria-hidden="true"></div>
+                <div class="pacing-card__head">
+                  <h3 class="pacing-card__title">{{ log.title }}</h3>
+                </div>
+                @if (log.time) {
+                  <p class="pacing-card__meta">{{ log.time }}</p>
+                }
+                @if (log.description) {
+                  <p class="pacing-card__text">{{ log.description }}</p>
+                }
+                <p class="pacing-card__label">
+                  Schwere {{ log.difficulty }} · {{ difficultyText(log.difficulty) }}
+                  @if (!log.done) {
+                    · offen
+                  }
+                </p>
+              </article>
+            } @empty {
+              <p class="pacing__hint">
+                @if (column.today) {
+                  Noch nichts für heute. Plus drücken und eintragen, was du getan hast.
+                } @else {
+                  Nichts eingetragen.
+                }
+              </p>
+            }
+          }
+        </div>
+      </section>
+    }
+  </div>
+</section>
+
+@if (showPopover()) {
+  <div class="pacing-popover" role="presentation">
+    <button
+      class="pacing-popover__backdrop"
+      type="button"
+      aria-label="Schließen"
+      (click)="closePopover()"
+    ></button>
+    <div
+      class="pacing-popover__panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pacing-popover-title"
+      [style.--pacing-popover-accent]="colorOf(form.controls.difficulty.value)"
+    >
+      <div class="pacing-popover__accent" aria-hidden="true"></div>
+      <header class="pacing-popover__header">
+        <h2 id="pacing-popover-title" class="pacing-popover__title">{{ popoverTitle() }}</h2>
+        <button
+          class="pacing-popover__close"
+          type="button"
+          title="Schließen"
+          aria-label="Schließen"
+          (click)="closePopover()"
+        >
+          <i class="pacing-popover__icon" [ngClass]="iconClass('xmark')" aria-hidden="true"></i>
+        </button>
+      </header>
+      <form class="pacing-popover__form" [formGroup]="form" (ngSubmit)="saveLog()">
+        @if (!activities().length) {
+          <p class="pacing__hint">
+            Zuerst in der
+            <a class="pacing__link" routerLink="/pacing/aktivitaeten">Aktivitätenliste</a>
+            Einträge anlegen, z. B. „5 Minuten laufen“.
+          </p>
+        } @else {
+          @if (popoverEditable()) {
+            <p class="pacing__hint">
+              Die Uhrzeit ist mit jetzt vorbelegt. Nur heutige Karten können gespeichert oder
+              geändert werden.
+            </p>
+          } @else {
+            <p class="pacing__hint">Diese Karte kann nicht mehr geändert werden, der Tag ist vorbei.</p>
+          }
+          <mat-form-field appearance="outline">
+            <mat-label>Uhrzeit</mat-label>
+            <input matInput type="time" formControlName="time" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Aktivität</mat-label>
+            <mat-select formControlName="activityId">
+              @for (activity of activities(); track activity.id) {
+                <mat-option [value]="activity.id">{{ activity.title }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-checkbox formControlName="done">Erledigt</mat-checkbox>
+          <p class="pacing__label">
+            Wie schwer war es? {{ form.getRawValue().difficulty }} ·
+            {{ difficultyText(form.getRawValue().difficulty) }}
+          </p>
+          <div class="pacing__scores">
+            @for (option of difficultyOptions; track option.value) {
+              <button
+                class="pacing__score"
+                type="button"
+                [class.pacing__score--selected]="form.getRawValue().difficulty === option.value"
+                [style.background]="colorOf(option.value)"
+                [style.color]="contrastOf(option.value)"
+                (click)="selectDifficulty(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            }
+          </div>
+          <div class="pacing-popover__actions">
+            @if (editingLog() && popoverEditable()) {
+              <button matButton type="button" [disabled]="saving()" (click)="deleteEditing()">
+                Löschen
+              </button>
+            }
+            <span class="pacing-popover__spacer"></span>
+            @if (popoverEditable()) {
+              <button matButton="filled" type="submit" [disabled]="saving() || !activities().length">
+                Speichern
+              </button>
+            }
+          </div>
+        }
+      </form>
+    </div>
+  </div>
+}

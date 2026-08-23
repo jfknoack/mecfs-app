@@ -1,0 +1,306 @@
+<section class="rezept-detail">
+  <a class="rezept-detail__back" routerLink="/rezepte">Zurück zu allen Rezepten</a>
+
+  @if (!recipeReady()) {
+    <p class="rezept-detail__empty">Rezept wird geladen…</p>
+  } @else if (recipe(); as current) {
+    <header class="rezept-detail__header">
+      <div class="rezept-detail__heading">
+        <i class="rezept-detail__icon" [ngClass]="iconClass('utensils')" aria-hidden="true"></i>
+        <div class="rezept-detail__heading-body">
+          @if (formMode() === 'recipe') {
+            <form class="rezept-detail__inline-form rezept-detail__inline-form--header" (submit)="saveForm(); $event.preventDefault()">
+              <div class="rezept-detail__inline-fields" [formGroup]="recipeForm">
+                <mat-form-field class="rezept-detail__inline-field" appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Titel</mat-label>
+                  <input matInput formControlName="title" maxlength="80" (keydown.escape)="closeForm()" />
+                </mat-form-field>
+                <mat-form-field class="rezept-detail__inline-field rezept-detail__inline-field--wide" appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Beschreibung</mat-label>
+                  <textarea
+                    matInput
+                    formControlName="description"
+                    rows="3"
+                    maxlength="2000"
+                    (keydown.escape)="closeForm()"
+                  ></textarea>
+                </mat-form-field>
+                <mat-form-field
+                  class="rezept-detail__visibility"
+                  appearance="outline"
+                  subscriptSizing="dynamic"
+                >
+                  <mat-label>Sichtbarkeit</mat-label>
+                  <mat-select formControlName="visibility">
+                    <mat-option value="private">Privat</mat-option>
+                    <mat-option value="public">Public</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              <div class="rezept-detail__inline-actions">
+                <button matButton type="button" (click)="closeForm()">Abbrechen</button>
+                <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+              </div>
+            </form>
+          } @else {
+            <div class="rezept-detail__title-row">
+              <h1 class="rezept-detail__title">{{ current.title }}</h1>
+              @if (canEdit()) {
+                <button
+                  class="rezept-detail__icon-btn"
+                  type="button"
+                  title="Rezept bearbeiten"
+                  aria-label="Rezept bearbeiten"
+                  (click)="openRecipeForm()"
+                >
+                  <i class="rezept-detail__action-icon" [ngClass]="iconClass('pen-to-square')" aria-hidden="true"></i>
+                </button>
+                <button
+                  class="rezept-detail__icon-btn rezept-detail__icon-btn--danger"
+                  type="button"
+                  title="Rezept löschen"
+                  aria-label="Rezept löschen"
+                  (click)="deleteRecipe()"
+                >
+                  <i class="rezept-detail__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+                </button>
+              }
+            </div>
+            <p class="rezept-detail__meta">
+              {{ current.authorName }} · {{ current.visibility === 'public' ? 'Public' : 'Privat' }}
+            </p>
+          }
+        </div>
+      </div>
+    </header>
+
+    @if (current.description && formMode() !== 'recipe') {
+      <p class="rezept-detail__description">{{ current.description }}</p>
+    }
+
+    <section class="rezept-detail__section">
+      <div class="rezept-detail__section-head">
+        <button
+          class="rezept-detail__accordion"
+          type="button"
+          [attr.aria-expanded]="ingredientsOpen()"
+          (click)="toggleIngredients()"
+        >
+          <i
+            class="rezept-detail__accordion-icon"
+            [class.rezept-detail__accordion-icon--open]="ingredientsOpen()"
+            [ngClass]="iconClass('chevron-right')"
+            aria-hidden="true"
+          ></i>
+          <h2 class="rezept-detail__section-title">
+            <i class="rezept-detail__section-icon" [ngClass]="iconClass('carrot')" aria-hidden="true"></i>
+            Zutaten
+            @if (current.ingredients.length) {
+              <span class="rezept-detail__accordion-count">{{ current.ingredients.length }}</span>
+            }
+          </h2>
+        </button>
+        @if (canEdit()) {
+          <button
+            class="rezept-detail__icon-btn rezept-detail__icon-btn--end"
+            type="button"
+            title="Zutat hinzufügen"
+            aria-label="Zutat hinzufügen"
+            (click)="openIngredientForm()"
+          >
+            <i class="rezept-detail__action-icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+          </button>
+        }
+      </div>
+      @if (ingredientsOpen()) {
+        <ul
+          class="rezept-detail__list"
+          cdkDropList
+          cdkDropListLockAxis="y"
+          [cdkDropListDisabled]="!canEdit()"
+          (cdkDropListDropped)="dropIngredients($event)"
+        >
+          @for (item of current.ingredients; track item.id) {
+            <li
+              class="rezept-detail__item"
+              cdkDrag
+              cdkDragLockAxis="y"
+              [cdkDragDisabled]="!canEdit() || isEditingIngredient(item.id)"
+            >
+              <div class="rezept-detail__placeholder" *cdkDragPlaceholder></div>
+              @if (canEdit() && !isEditingIngredient(item.id)) {
+                <span
+                  class="rezept-detail__drag-handle"
+                  cdkDragHandle
+                  title="Reihenfolge ändern"
+                  aria-label="Reihenfolge ändern"
+                >
+                  <i class="rezept-detail__action-icon" [ngClass]="iconClass('grip-vertical')" aria-hidden="true"></i>
+                </span>
+              }
+              @if (isEditingIngredient(item.id)) {
+                <ng-container *ngTemplateOutlet="ingredientInline" />
+              } @else {
+                <p class="rezept-detail__item-text">{{ item.text }}</p>
+                @if (canEdit()) {
+                  <button
+                    class="rezept-detail__icon-btn"
+                    type="button"
+                    title="Zutat bearbeiten"
+                    aria-label="Zutat bearbeiten"
+                    (click)="openIngredientForm(item.id)"
+                  >
+                    <i class="rezept-detail__action-icon" [ngClass]="iconClass('pen-to-square')" aria-hidden="true"></i>
+                  </button>
+                  <button
+                    class="rezept-detail__icon-btn rezept-detail__icon-btn--danger"
+                    type="button"
+                    title="Zutat löschen"
+                    aria-label="Zutat löschen"
+                    (click)="deleteIngredient(item.id)"
+                  >
+                    <i class="rezept-detail__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+                  </button>
+                }
+              }
+            </li>
+          } @empty {
+            @if (!isAddingIngredient()) {
+              <li class="rezept-detail__empty">Noch keine Zutaten.</li>
+            }
+          }
+          @if (isAddingIngredient()) {
+            <li class="rezept-detail__item">
+              <ng-container *ngTemplateOutlet="ingredientInline" />
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section class="rezept-detail__section">
+      <div class="rezept-detail__section-head">
+        <h2 class="rezept-detail__section-title">
+          <i class="rezept-detail__section-icon" [ngClass]="iconClass('list-ol')" aria-hidden="true"></i>
+          Zubereitung
+        </h2>
+        @if (canEdit()) {
+          <button
+            class="rezept-detail__icon-btn rezept-detail__icon-btn--end"
+            type="button"
+            title="Schritt hinzufügen"
+            aria-label="Schritt hinzufügen"
+            (click)="openStepForm()"
+          >
+            <i class="rezept-detail__action-icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+          </button>
+        }
+      </div>
+      <ol
+        class="rezept-detail__steps"
+        cdkDropList
+        cdkDropListLockAxis="y"
+        [cdkDropListDisabled]="!canEdit()"
+        (cdkDropListDropped)="dropSteps($event)"
+      >
+        @for (item of current.steps; track item.id) {
+          <li
+            class="rezept-detail__step"
+            cdkDrag
+            cdkDragLockAxis="y"
+            [cdkDragDisabled]="!canEdit() || isEditingStep(item.id)"
+          >
+            <div class="rezept-detail__placeholder" *cdkDragPlaceholder></div>
+            @if (canEdit() && !isEditingStep(item.id)) {
+              <span
+                class="rezept-detail__drag-handle"
+                cdkDragHandle
+                title="Reihenfolge ändern"
+                aria-label="Reihenfolge ändern"
+              >
+                <i class="rezept-detail__action-icon" [ngClass]="iconClass('grip-vertical')" aria-hidden="true"></i>
+              </span>
+            }
+            @if (isEditingStep(item.id)) {
+              <ng-container *ngTemplateOutlet="stepInline" />
+            } @else {
+              <p class="rezept-detail__item-text">{{ item.text }}</p>
+              @if (canEdit()) {
+                <button
+                  class="rezept-detail__icon-btn"
+                  type="button"
+                  title="Schritt bearbeiten"
+                  aria-label="Schritt bearbeiten"
+                  (click)="openStepForm(item.id)"
+                >
+                  <i class="rezept-detail__action-icon" [ngClass]="iconClass('pen-to-square')" aria-hidden="true"></i>
+                </button>
+                <button
+                  class="rezept-detail__icon-btn rezept-detail__icon-btn--danger"
+                  type="button"
+                  title="Schritt löschen"
+                  aria-label="Schritt löschen"
+                  (click)="deleteStep(item.id)"
+                >
+                  <i class="rezept-detail__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+                </button>
+              }
+            }
+          </li>
+        } @empty {
+          @if (!isAddingStep()) {
+            <li class="rezept-detail__empty">Noch keine Schritte.</li>
+          }
+        }
+        @if (isAddingStep()) {
+          <li class="rezept-detail__step">
+            <ng-container *ngTemplateOutlet="stepInline" />
+          </li>
+        }
+      </ol>
+    </section>
+  } @else {
+    <p class="rezept-detail__empty">Rezept nicht gefunden oder nicht sichtbar.</p>
+  }
+</section>
+
+<ng-template #ingredientInline>
+  <form class="rezept-detail__inline-form" (submit)="saveForm(); $event.preventDefault()">
+    <mat-form-field class="rezept-detail__inline-field" appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Zutat</mat-label>
+      <input
+        matInput
+        [value]="itemText()"
+        (input)="onItemInput($event)"
+        maxlength="80"
+        placeholder="z. B. 200 g Reis"
+        (keydown.escape)="closeForm()"
+      />
+    </mat-form-field>
+    <div class="rezept-detail__inline-actions">
+      <button matButton type="button" (click)="closeForm()">Abbrechen</button>
+      <button matButton="filled" type="submit" [disabled]="saving() || !itemText().trim()">Speichern</button>
+    </div>
+  </form>
+</ng-template>
+
+<ng-template #stepInline>
+  <form class="rezept-detail__inline-form" (submit)="saveForm(); $event.preventDefault()">
+    <mat-form-field class="rezept-detail__inline-field" appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Schritt</mat-label>
+      <textarea
+        matInput
+        rows="3"
+        maxlength="500"
+        [value]="itemText()"
+        (input)="onItemInput($event)"
+        placeholder="Was ist zu tun?"
+        (keydown.escape)="closeForm()"
+      ></textarea>
+    </mat-form-field>
+    <div class="rezept-detail__inline-actions">
+      <button matButton type="button" (click)="closeForm()">Abbrechen</button>
+      <button matButton="filled" type="submit" [disabled]="saving() || !itemText().trim()">Speichern</button>
+    </div>
+  </form>
+</ng-template>

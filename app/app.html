@@ -1,0 +1,119 @@
+@if (appUpdate.updateReady()) {
+  <div class="app-update" role="status">
+    <span class="app-update__text">Neue Version verfügbar</span>
+    <button matButton="filled" type="button" (click)="appUpdate.activate()">Aktualisieren</button>
+  </div>
+}
+
+@if (!auth.ready()) {
+  <div class="app-boot">Wird geladen…</div>
+} @else if (auth.isLoggedIn()) {
+  <mat-sidenav-container class="app-shell">
+    <mat-sidenav
+      #sidenav
+      class="app-shell__sidenav"
+      [mode]="isHandset() ? 'over' : 'side'"
+      [opened]="!isHandset()"
+    >
+      <div class="app-shell__sidenav-inner">
+        <div class="app-shell__brand">ME/CFS</div>
+        <mat-nav-list class="app-shell__nav-list">
+          @for (item of navItems(); track item.path) {
+            <a
+              mat-list-item
+              [routerLink]="item.path"
+              routerLinkActive
+              #rla="routerLinkActive"
+              [activated]="rla.isActive"
+              (click)="onNavClick()"
+            >
+              <i
+                matListItemIcon
+                class="app-shell__nav-icon fa-solid"
+                [ngClass]="'fa-' + item.icon"
+                aria-hidden="true"
+              ></i>
+              <span matListItemTitle>{{ item.label }}</span>
+            </a>
+          }
+          <a mat-list-item (click)="logout()">
+            <i
+              matListItemIcon
+              class="app-shell__nav-icon fa-solid fa-right-from-bracket"
+              aria-hidden="true"
+            ></i>
+            <span matListItemTitle>Login / Logout</span>
+          </a>
+        </mat-nav-list>
+        @if (auth.canPreviewUiRole()) {
+          <div
+            class="app-shell__dev"
+            title="Nur lokale Entwicklung. Firestore-Rechte bleiben Admin."
+          >
+            <span class="app-shell__dev-label">UI</span>
+            <button
+              class="app-shell__dev-btn"
+              [class.app-shell__dev-btn--active]="auth.role() === 'admin'"
+              type="button"
+              (click)="setUiRole('admin')"
+            >
+              Admin
+            </button>
+            <button
+              class="app-shell__dev-btn"
+              [class.app-shell__dev-btn--active]="auth.role() === 'patient'"
+              type="button"
+              (click)="setUiRole('patient')"
+            >
+              Patient
+            </button>
+            <button
+              class="app-shell__dev-btn"
+              [class.app-shell__dev-btn--active]="auth.role() === 'user'"
+              type="button"
+              (click)="setUiRole('user')"
+            >
+              User
+            </button>
+          </div>
+        }
+      </div>
+    </mat-sidenav>
+
+    <mat-sidenav-content>
+      <mat-toolbar>
+        @if (isHandset()) {
+          <button matIconButton type="button" aria-label="Menü öffnen" (click)="sidenav.toggle()">
+            <i class="app-shell__toolbar-icon fa-solid fa-bars" aria-hidden="true"></i>
+          </button>
+        }
+        <span class="app-shell__spacer"></span>
+        <span class="app-shell__role">{{ auth.username() }} ({{ auth.role() }})</span>
+        <button
+          matIconButton
+          type="button"
+          [matTooltip]="theme.mode() === 'dark' ? 'Hellmodus' : 'Dunkelmodus'"
+          (click)="theme.toggle()"
+        >
+          <i
+            class="app-shell__toolbar-icon fa-solid"
+            [ngClass]="theme.mode() === 'dark' ? 'fa-sun' : 'fa-moon'"
+            aria-hidden="true"
+          ></i>
+        </button>
+      </mat-toolbar>
+
+      @if (auth.uiRolePreviewActive()) {
+        <p class="app-shell__preview">
+          UI-Ansicht: {{ auth.role() }} — nur lokal, Firebase-Rechte bleiben unverändert
+        </p>
+      }
+
+      <main class="app-shell__content">
+        <router-outlet />
+      </main>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+} @else {
+  <router-outlet />
+}

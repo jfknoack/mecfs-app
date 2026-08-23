@@ -1,0 +1,214 @@
+<section class="kalender">
+  <header class="kalender__header">
+    <div class="kalender__heading">
+      <h1 class="kalender__title">{{ title }}</h1>
+      @if (calendarConfigured && hasCalendarAccess()) {
+        <button
+          class="kalender__icon-btn"
+          type="button"
+          title="Termin hinzufügen"
+          aria-label="Termin hinzufügen"
+          (click)="openCreate()"
+        >
+          <i class="kalender__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+        </button>
+      }
+    </div>
+    <p class="kalender__text">
+      Pflegetermine aus Google Kalender und Routinen im Überblick.
+    </p>
+  </header>
+
+  @if (!calendarConfigured) {
+    <p class="kalender__hint">
+      Die Google-Kalender-ID fehlt noch in <code>src/environments/environment.ts</code>
+      (<code>googleCalendarId</code>).
+    </p>
+  } @else if (!hasCalendarAccess()) {
+    <div class="kalender__connect">
+      <p class="kalender__hint">
+        Einmal mit Google verbinden, damit die Pflegetermine geladen werden können.
+      </p>
+      <button matButton="filled" type="button" [disabled]="connecting()" (click)="connect()">
+        Google Kalender verbinden
+      </button>
+    </div>
+  }
+
+  <full-calendar class="kalender__calendar" [options]="calendarOptions()" />
+</section>
+
+@if (popover(); as panel) {
+  <div class="kalender-popover" role="presentation">
+    <button
+      class="kalender-popover__backdrop"
+      type="button"
+      aria-label="Schließen"
+      (click)="closePopover()"
+    ></button>
+    <div
+      class="kalender-popover__panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="kalender-popover-title"
+      [style.--kalender-popover-accent]="popoverAccent()"
+    >
+      <div class="kalender-popover__accent" aria-hidden="true"></div>
+      <header class="kalender-popover__header">
+        <h2 id="kalender-popover-title" class="kalender-popover__title">{{ popoverTitle() }}</h2>
+        <button
+          class="kalender-popover__close"
+          type="button"
+          title="Schließen"
+          aria-label="Schließen"
+          (click)="closePopover()"
+        >
+          <i class="kalender-popover__icon" [ngClass]="iconClass('xmark')" aria-hidden="true"></i>
+        </button>
+      </header>
+
+      @if (panel.kind === 'event') {
+        <form class="kalender-popover__form" [formGroup]="form" (ngSubmit)="saveEvent()">
+          <mat-form-field appearance="outline">
+            <mat-label>Titel</mat-label>
+            <input matInput formControlName="title" maxlength="1024" />
+          </mat-form-field>
+          <mat-checkbox formControlName="allDay" (change)="onAllDayChange()">Ganztägig</mat-checkbox>
+          <div class="kalender-popover__when">
+            <mat-form-field appearance="outline">
+              <mat-label>Von</mat-label>
+              <input matInput type="date" formControlName="startDate" />
+            </mat-form-field>
+            @if (!form.controls.allDay.value) {
+              <mat-form-field appearance="outline">
+                <mat-label>Beginn</mat-label>
+                <input matInput type="time" formControlName="startTime" />
+              </mat-form-field>
+            }
+          </div>
+          <div class="kalender-popover__when">
+            <mat-form-field appearance="outline">
+              <mat-label>Bis</mat-label>
+              <input matInput type="date" formControlName="endDate" />
+            </mat-form-field>
+            @if (!form.controls.allDay.value) {
+              <mat-form-field appearance="outline">
+                <mat-label>Ende</mat-label>
+                <input matInput type="time" formControlName="endTime" />
+              </mat-form-field>
+            }
+          </div>
+          <mat-form-field appearance="outline">
+            <mat-label>Ort</mat-label>
+            <input matInput formControlName="location" maxlength="1024" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Beschreibung</mat-label>
+            <textarea matInput formControlName="description" rows="3" maxlength="8192"></textarea>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Wiederholen</mat-label>
+            <mat-select formControlName="recurrence">
+              @for (option of recurrenceOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          @if (editingSeriesInstance()) {
+            <p class="kalender-popover__hint">
+              Dieser Termin gehört zu einer Serie. Änderungen gelten nur für diesen Termin.
+            </p>
+          }
+          <mat-form-field appearance="outline">
+            <mat-label>Erinnerung</mat-label>
+            <mat-select formControlName="reminder">
+              @for (option of reminderOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <div class="kalender-popover__when">
+            <mat-form-field appearance="outline">
+              <mat-label>Anzeigen als</mat-label>
+              <mat-select formControlName="transparency">
+                <mat-option value="opaque">Beschäftigt</mat-option>
+                <mat-option value="transparent">Verfügbar</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Sichtbarkeit</mat-label>
+              <mat-select formControlName="visibility">
+                <mat-option value="default">Standard</mat-option>
+                <mat-option value="private">Privat</mat-option>
+                <mat-option value="public">Öffentlich</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="kalender-popover__actions">
+            @if (editingId()) {
+              <button matButton type="button" [disabled]="saving()" (click)="deleteEvent()">
+                Löschen
+              </button>
+            }
+            <span class="kalender-popover__spacer"></span>
+            <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+          </div>
+        </form>
+      } @else if (popoverRoutine(); as current) {
+        <p class="kalender-popover__meta">
+          {{ recurrenceLabel(current) }} · {{ timeLabel(current) }}
+        </p>
+        <p class="kalender-popover__meta">Für den {{ formatDateLabel(popoverRoutineDate()) }}</p>
+
+        <div class="kalender-popover__groups">
+          @for (group of routineItemGroups(); track group.key) {
+            <section class="kalender-popover__group">
+              <div class="kalender-popover__group-head">
+                <i
+                  class="kalender-popover__group-icon"
+                  [ngClass]="iconClass(group.icon)"
+                  aria-hidden="true"
+                ></i>
+                <h3 class="kalender-popover__group-title">{{ group.title }}</h3>
+              </div>
+              <ul class="kalender-popover__items">
+                @for (item of group.items; track item.id) {
+                  <li
+                    class="kalender-popover__item"
+                    [class.kalender-popover__item--done]="
+                      isItemChecked(current, popoverRoutineDate(), item.id)
+                    "
+                  >
+                    <mat-checkbox
+                      class="kalender-popover__check"
+                      [checked]="isItemChecked(current, popoverRoutineDate(), item.id)"
+                      [aria-label]="'Erledigt: ' + item.text"
+                      (change)="toggleRoutineItem(item.id, $event.checked)"
+                    />
+                    <div class="kalender-popover__item-body">
+                      @if (item.kind === 'recipe') {
+                        <a
+                          class="kalender-popover__recipe"
+                          [routerLink]="['/rezepte', item.recipeId]"
+                        >
+                          {{ item.text }}
+                        </a>
+                        <p class="kalender-popover__item-meta">Rezept</p>
+                      } @else {
+                        <p class="kalender-popover__item-text">{{ item.text }}</p>
+                      }
+                    </div>
+                  </li>
+                }
+              </ul>
+            </section>
+          } @empty {
+            <p class="kalender-popover__empty">Noch keine Punkte.</p>
+          }
+        </div>
+      } @else {
+        <p class="kalender-popover__empty">Routine nicht gefunden.</p>
+      }
+    </div>
+  </div>
+}

@@ -1,0 +1,242 @@
+.routine-detail {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  &__back {
+    color: var(--mat-sys-primary);
+    text-decoration: none;
+    width: fit-content;
+  }
+
+  &__header {
+    width: 100%;
+  }
+
+  &__heading {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+  }
+
+  &__heading-body {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__icon {
+    flex: 0 0 auto;
+    font-size: 1.8rem;
+    font-family: 'Font Awesome 7 Free';
+    font-weight: 900;
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__title {
+    flex: 1 1 auto;
+    margin: 0;
+  }
+
+  &__meta {
+    margin: 4px 0 0;
+    opacity: 0.8;
+  }
+
+  &__icon-btn {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--mat-sys-primary);
+    cursor: pointer;
+    font-size: 1.15rem;
+
+    &--danger {
+      color: var(--mat-sys-error);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+  }
+
+  &__action-icon {
+    font-family: 'Font Awesome 7 Free';
+    font-weight: 900;
+  }
+
+  &__groups {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  &__group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__group-icon {
+    flex: 0 0 auto;
+    font-size: 1.2rem;
+    font-family: 'Font Awesome 7 Free';
+    font-weight: 900;
+    color: var(--mat-sys-primary);
+  }
+
+  &__group-title {
+    flex: 1 1 auto;
+    margin: 0;
+    font: var(--mat-sys-title-medium);
+  }
+
+  &__items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: var(--mat-sys-surface-container);
+
+    &--done {
+      background: color-mix(in srgb, var(--mat-sys-tertiary-container) 70%, var(--mat-sys-surface-container));
+    }
+  }
+
+  &__item-body {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__item-text,
+  &__recipe-link {
+    margin: 0;
+    font: var(--mat-sys-body-medium);
+  }
+
+  &__recipe-link {
+    display: inline-block;
+    color: var(--mat-sys-primary);
+    text-decoration: none;
+  }
+
+  &__item-meta {
+    margin: 4px 0 0;
+    font: var(--mat-sys-body-small);
+    opacity: 0.8;
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 12px;
+    background: var(--mat-sys-surface-container-low);
+  }
+
+  &__form-title {
+    margin: 0;
+    font: var(--mat-sys-title-medium);
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  &__weekdays {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  &__weekday {
+    min-width: 44px;
+    height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    border-radius: 10px;
+    background: var(--mat-sys-surface);
+    color: inherit;
+    cursor: pointer;
+
+    &--selected {
+      border-color: var(--mat-sys-primary);
+      background: var(--mat-sys-primary-container);
+      color: var(--mat-sys-on-primary-container);
+    }
+  }
+
+  &__visibility {
+    width: 160px;
+  }
+
+  &__label {
+    margin: 0;
+    font: var(--mat-sys-label-large);
+  }
+
+  &__colors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  &__color {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    cursor: pointer;
+
+    &--selected {
+      border-color: var(--mat-sys-on-surface);
+      box-shadow: 0 0 0 2px var(--mat-sys-surface);
+    }
+  }
+
+  &__form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  &__empty {
+    margin: 0;
+    opacity: 0.8;
+  }
+}

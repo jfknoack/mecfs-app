@@ -1,0 +1,129 @@
+<section class="pacing-aktivitaeten">
+  <a class="pacing-aktivitaeten__back" routerLink="/pacing">Zurück zum Pacing</a>
+  <header class="pacing-aktivitaeten__header">
+    <div class="pacing-aktivitaeten__heading">
+      <h1 class="pacing-aktivitaeten__title">{{ title }}</h1>
+      <button
+        class="pacing-aktivitaeten__icon-btn"
+        type="button"
+        title="Aktivität hinzufügen"
+        aria-label="Aktivität hinzufügen"
+        (click)="openAdd()"
+      >
+        <i class="pacing-aktivitaeten__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="pacing-aktivitaeten__subtitle">
+      Eine Liste von Tätigkeiten, die du später im Kalender eintragen und nach Schwere bewerten
+      kannst.
+    </p>
+  </header>
+
+  @if (!activitiesReady()) {
+    <p class="pacing-aktivitaeten__empty">Aktivitäten werden geladen…</p>
+  } @else {
+    <ul class="pacing-aktivitaeten__list">
+      @for (activity of activities(); track activity.id) {
+        <li class="pacing-aktivitaeten__item">
+          @if (isEditing(activity.id)) {
+            <form
+              class="pacing-aktivitaeten__form"
+              [formGroup]="form"
+              (submit)="saveForm(); $event.preventDefault()"
+            >
+              <mat-form-field appearance="outline">
+                <mat-label>Titel</mat-label>
+                <input
+                  matInput
+                  formControlName="title"
+                  maxlength="80"
+                  placeholder="z. B. 5 Minuten laufen"
+                />
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Beschreibung (optional)</mat-label>
+                <textarea matInput formControlName="description" rows="2" maxlength="2000"></textarea>
+              </mat-form-field>
+              <div class="pacing-aktivitaeten__form-actions">
+                <button matButton type="button" (click)="closeForm()">Abbrechen</button>
+                <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+              </div>
+            </form>
+          } @else {
+            <div class="pacing-aktivitaeten__item-body">
+              <p class="pacing-aktivitaeten__item-title">{{ activity.title }}</p>
+              @if (activity.description) {
+                <p class="pacing-aktivitaeten__item-text">{{ activity.description }}</p>
+              }
+              <p class="pacing-aktivitaeten__item-meta">
+                {{ activity.authorName }}
+                @if (activity.createdAt) {
+                  · {{ activity.createdAt | date: 'short' }}
+                }
+              </p>
+            </div>
+            <button
+              class="pacing-aktivitaeten__icon-btn"
+              type="button"
+              title="Bearbeiten"
+              aria-label="Bearbeiten"
+              (click)="openEdit(activity.id)"
+            >
+              <i
+                class="pacing-aktivitaeten__icon"
+                [ngClass]="iconClass('pen-to-square')"
+                aria-hidden="true"
+              ></i>
+            </button>
+            <button
+              class="pacing-aktivitaeten__icon-btn pacing-aktivitaeten__icon-btn--danger"
+              type="button"
+              title="Löschen"
+              aria-label="Löschen"
+              (click)="deleteActivity(activity.id)"
+            >
+              <i
+                class="pacing-aktivitaeten__icon"
+                [ngClass]="iconClass('trash-can')"
+                aria-hidden="true"
+              ></i>
+            </button>
+          }
+        </li>
+      } @empty {
+        @if (!adding()) {
+          <li class="pacing-aktivitaeten__empty">
+            Noch keine Aktivitäten. Plus drücken, z. B. „5 Minuten Musik hören“.
+          </li>
+        }
+      }
+      @if (adding()) {
+        <li class="pacing-aktivitaeten__item">
+          <form
+            class="pacing-aktivitaeten__form"
+            [formGroup]="form"
+            (submit)="saveForm(); $event.preventDefault()"
+          >
+            <mat-form-field appearance="outline">
+              <mat-label>Titel</mat-label>
+              <input
+                matInput
+                formControlName="title"
+                maxlength="80"
+                placeholder="z. B. 5 Minuten laufen"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Beschreibung (optional)</mat-label>
+              <textarea matInput formControlName="description" rows="2" maxlength="2000"></textarea>
+            </mat-form-field>
+            <div class="pacing-aktivitaeten__form-actions">
+              <button matButton type="button" (click)="closeForm()">Abbrechen</button>
+              <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+            </div>
+          </form>
+        </li>
+      }
+    </ul>
+  }
+</section>

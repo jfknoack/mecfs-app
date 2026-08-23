@@ -1,0 +1,70 @@
+<section class="rezepte">
+  <header class="rezepte__header">
+    <div class="rezepte__heading">
+      <h1 class="rezepte__title">{{ title }}</h1>
+      @if (isAdmin()) {
+        <button
+          class="rezepte__icon-btn"
+          type="button"
+          title="Rezept hinzufügen"
+          aria-label="Rezept hinzufügen"
+          (click)="toggleCreate()"
+        >
+          <i class="rezepte__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+        </button>
+      }
+    </div>
+    <p class="rezepte__subtitle">
+      Gemeinsame Rezepte.
+      @if (!isAdmin()) {
+        Pflegen können nur Admins.
+      }
+    </p>
+  </header>
+
+  <div class="rezepte__grid">
+    @if (!recipesReady()) {
+      <p class="rezepte__empty">Rezepte werden geladen…</p>
+    } @else {
+      @for (recipe of recipeItems(); track recipe.id) {
+        <a class="rezepte__card" [routerLink]="['/rezepte', recipe.id]">
+          <i class="rezepte__card-icon" [ngClass]="iconClass('utensils')" aria-hidden="true"></i>
+          <div class="rezepte__card-body">
+            <h2 class="rezepte__card-title">{{ recipe.title }}</h2>
+            <p class="rezepte__card-meta">
+              {{ recipe.authorName }} · {{ recipe.visibility === 'public' ? 'Public' : 'Privat' }} ·
+              {{ recipe.ingredients.length }} Zutaten
+            </p>
+          </div>
+        </a>
+      } @empty {
+        <p class="rezepte__empty">Keine Rezepte gefunden.</p>
+      }
+    }
+  </div>
+
+  @if (isAdmin() && showCreate()) {
+    <form class="rezepte__create" [formGroup]="form" (ngSubmit)="createRecipe()">
+      <h2 class="rezepte__create-title">Neues Rezept anlegen</h2>
+      <mat-form-field appearance="outline">
+        <mat-label>Titel</mat-label>
+        <input matInput formControlName="title" maxlength="80" placeholder="z. B. Reis mit Gemüse" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Beschreibung</mat-label>
+        <textarea matInput formControlName="description" rows="3" maxlength="2000"></textarea>
+      </mat-form-field>
+      <mat-form-field class="rezepte__visibility" appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Sichtbarkeit</mat-label>
+        <mat-select formControlName="visibility">
+          <mat-option value="private">Privat</mat-option>
+          <mat-option value="public">Public</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <div class="rezepte__create-actions">
+        <button matButton type="button" (click)="toggleCreate()">Abbrechen</button>
+        <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+      </div>
+    </form>
+  }
+</section>

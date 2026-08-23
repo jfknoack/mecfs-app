@@ -1,0 +1,199 @@
+<section class="budget-month">
+  <a class="budget-month__back" routerLink="/budget">Zurück zur Jahresübersicht</a>
+
+  @if (!valid) {
+    <p class="budget-month__empty">Ungültiger Monat.</p>
+  } @else {
+    <header class="budget-month__header">
+      <div class="budget-month__heading">
+        <i class="budget-month__title-icon" [ngClass]="iconClass('calendar-days')" aria-hidden="true"></i>
+        <div>
+          <div class="budget-month__title-row">
+            <h1 class="budget-month__title">{{ monthTitle }}</h1>
+            @if (isAdmin()) {
+              <button
+                class="budget-month__icon-btn"
+                type="button"
+                title="Buchung hinzufügen"
+                aria-label="Buchung hinzufügen"
+                (click)="toggleCreate()"
+              >
+                <i class="budget-month__action-icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+              </button>
+            }
+          </div>
+          <p class="budget-month__subtitle">Einkommen, Spenden und Ausgaben für diesen Monat.</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="budget-month__totals">
+      <article class="budget-month__total budget-month__total--income">
+        <i class="budget-month__total-icon" [ngClass]="iconClass('arrow-trend-up')" aria-hidden="true"></i>
+        <div>
+          <p class="budget-month__total-label">Einkommen</p>
+          <p class="budget-month__total-value">{{ formatEuro(totals().income) }}</p>
+        </div>
+      </article>
+      <article class="budget-month__total budget-month__total--expense">
+        <i class="budget-month__total-icon" [ngClass]="iconClass('arrow-trend-down')" aria-hidden="true"></i>
+        <div>
+          <p class="budget-month__total-label">Ausgaben</p>
+          <p class="budget-month__total-value">{{ formatEuro(totals().expense) }}</p>
+        </div>
+      </article>
+      <article
+        class="budget-month__total"
+        [class.budget-month__total--positive]="totals().balance >= 0"
+        [class.budget-month__total--negative]="totals().balance < 0"
+      >
+        <i class="budget-month__total-icon" [ngClass]="iconClass('scale-balanced')" aria-hidden="true"></i>
+        <div>
+          <p class="budget-month__total-label">Saldo</p>
+          <p class="budget-month__total-value">{{ formatEuro(totals().balance) }}</p>
+        </div>
+      </article>
+    </div>
+
+    <div class="budget-month__columns">
+      <section class="budget-month__column">
+        <h2 class="budget-month__column-title">
+          <i class="budget-month__column-icon" [ngClass]="iconClass('hand-holding-heart')" aria-hidden="true"></i>
+          Einkommen
+        </h2>
+        @if (!entriesReady()) {
+          <p class="budget-month__empty">Buchungen werden geladen…</p>
+        } @else {
+          <ul class="budget-month__list">
+            @for (entry of incomeEntries(); track entry.id) {
+              <li class="budget-month__entry budget-month__entry--income">
+                <i class="budget-month__entry-icon" [ngClass]="iconClass(entry.icon)" aria-hidden="true"></i>
+                <div class="budget-month__entry-body">
+                  <p class="budget-month__entry-title">{{ entry.title }}</p>
+                  <p class="budget-month__entry-meta">
+                    {{ categoryLabel(entry.category) }}
+                    @if (entry.createdAt) {
+                      · {{ entry.createdAt | date: 'short' }}
+                    }
+                    @if (entry.note) {
+                      · {{ entry.note }}
+                    }
+                  </p>
+                </div>
+                <p class="budget-month__entry-amount">{{ formatEuro(entry.amount) }}</p>
+                @if (isAdmin()) {
+                  <button
+                    class="budget-month__icon-btn budget-month__icon-btn--danger"
+                    type="button"
+                    title="Buchung löschen"
+                    aria-label="Buchung löschen"
+                    (click)="deleteEntry(entry.id)"
+                  >
+                    <i class="budget-month__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+                  </button>
+                }
+              </li>
+            } @empty {
+              <li class="budget-month__empty">Noch kein Einkommen in diesem Monat.</li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="budget-month__column">
+        <h2 class="budget-month__column-title">
+          <i class="budget-month__column-icon" [ngClass]="iconClass('cart-shopping')" aria-hidden="true"></i>
+          Ausgaben
+        </h2>
+        @if (!entriesReady()) {
+          <p class="budget-month__empty">Buchungen werden geladen…</p>
+        } @else {
+          <ul class="budget-month__list">
+            @for (entry of expenseEntries(); track entry.id) {
+              <li class="budget-month__entry budget-month__entry--expense">
+                <i class="budget-month__entry-icon" [ngClass]="iconClass(entry.icon)" aria-hidden="true"></i>
+                <div class="budget-month__entry-body">
+                  <p class="budget-month__entry-title">{{ entry.title }}</p>
+                  <p class="budget-month__entry-meta">
+                    {{ categoryLabel(entry.category) }}
+                    @if (entry.createdAt) {
+                      · {{ entry.createdAt | date: 'short' }}
+                    }
+                    @if (entry.note) {
+                      · {{ entry.note }}
+                    }
+                  </p>
+                </div>
+                <p class="budget-month__entry-amount">{{ formatEuro(entry.amount) }}</p>
+                @if (isAdmin()) {
+                  <button
+                    class="budget-month__icon-btn budget-month__icon-btn--danger"
+                    type="button"
+                    title="Buchung löschen"
+                    aria-label="Buchung löschen"
+                    (click)="deleteEntry(entry.id)"
+                  >
+                    <i class="budget-month__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+                  </button>
+                }
+              </li>
+            } @empty {
+              <li class="budget-month__empty">Noch keine Ausgaben in diesem Monat.</li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
+
+    @if (isAdmin() && showCreate()) {
+      <form class="budget-month__create" [formGroup]="form" (ngSubmit)="saveEntry()">
+        <h2 class="budget-month__create-title">Neue Buchung</h2>
+        <div class="budget-month__create-row">
+          <mat-form-field class="budget-month__kind" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Art</mat-label>
+            <mat-select formControlName="kind" (selectionChange)="onKindChange($event.value)">
+              <mat-option value="income">Einkommen</mat-option>
+              <mat-option value="expense">Ausgabe</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field class="budget-month__amount" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Betrag</mat-label>
+            <input matInput formControlName="amount" inputmode="decimal" placeholder="0,00" />
+            <span matTextSuffix>€</span>
+          </mat-form-field>
+          <mat-form-field class="budget-month__title-field" appearance="outline" subscriptSizing="dynamic">
+            <mat-label>{{ titlePlaceholder() }}</mat-label>
+            <input matInput formControlName="title" maxlength="80" />
+          </mat-form-field>
+        </div>
+
+        <p class="budget-month__label">Kategorie</p>
+        <div class="budget-month__categories">
+          @for (option of categoryOptions(); track option.id) {
+            <button
+              class="budget-month__category"
+              [class.budget-month__category--selected]="selectedCategory() === option.id"
+              type="button"
+              [attr.title]="option.label"
+              [attr.aria-label]="option.label"
+              (click)="selectCategory(option.id)"
+            >
+              <i class="budget-month__category-icon" [ngClass]="iconClass(option.icon)" aria-hidden="true"></i>
+              <span class="budget-month__category-label">{{ option.label }}</span>
+            </button>
+          }
+        </div>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Notiz (optional)</mat-label>
+          <input matInput formControlName="note" maxlength="300" />
+        </mat-form-field>
+
+        <div class="budget-month__create-actions">
+          <button matButton type="button" (click)="showCreate.set(false)">Abbrechen</button>
+          <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+        </div>
+      </form>
+    }
+  }
+</section>

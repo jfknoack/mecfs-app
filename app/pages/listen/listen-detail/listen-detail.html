@@ -1,0 +1,145 @@
+<section class="listen-detail">
+  <a class="listen-detail__back" routerLink="/listen">Zurück zu allen Listen</a>
+
+  @if (!listsReady()) {
+    <p class="listen-detail__empty">Liste wird geladen…</p>
+  } @else if (list(); as currentList) {
+    <header class="listen-detail__header">
+      <div class="listen-detail__heading">
+        <i class="listen-detail__icon" [ngClass]="iconClass(currentList.icon)" aria-hidden="true"></i>
+        <div class="listen-detail__heading-body">
+          @if (isEditingList()) {
+            <form class="listen-detail__inline-form listen-detail__inline-form--header" (submit)="saveForm(); $event.preventDefault()">
+              <div class="listen-detail__inline-fields" [formGroup]="listForm">
+                <mat-form-field class="listen-detail__inline-field" appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Name</mat-label>
+                  <input matInput formControlName="name" maxlength="80" (keydown.escape)="closeForm()" />
+                </mat-form-field>
+                <mat-form-field class="listen-detail__visibility" appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Sichtbarkeit</mat-label>
+                  <mat-select formControlName="visibility">
+                    <mat-option value="private">Privat</mat-option>
+                    <mat-option value="public">Public</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              <div class="listen-detail__inline-actions">
+                <button matButton type="button" (click)="closeForm()">Abbrechen</button>
+                <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+              </div>
+            </form>
+          } @else {
+            <div class="listen-detail__title-row">
+              <h1 class="listen-detail__title">{{ currentList.name }}</h1>
+              @if (isAdmin()) {
+                <button
+                  class="listen-detail__icon-btn"
+                  type="button"
+                  title="Liste bearbeiten"
+                  aria-label="Liste bearbeiten"
+                  (click)="openListForm()"
+                >
+                  <i class="listen-detail__action-icon" [ngClass]="iconClass('pen-to-square')" aria-hidden="true"></i>
+                </button>
+                <button
+                  class="listen-detail__icon-btn"
+                  type="button"
+                  title="Eintrag hinzufügen"
+                  aria-label="Eintrag hinzufügen"
+                  (click)="openAdd()"
+                >
+                  <i class="listen-detail__action-icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+                </button>
+                <button
+                  class="listen-detail__icon-btn listen-detail__icon-btn--danger"
+                  type="button"
+                  title="Liste löschen"
+                  aria-label="Liste löschen"
+                  (click)="deleteList()"
+                >
+                  <i class="listen-detail__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+                </button>
+              }
+            </div>
+            <p class="listen-detail__meta">
+              Autor: {{ currentList.authorName }} ·
+              {{ currentList.visibility === 'public' ? 'Public' : 'Privat' }}
+            </p>
+          }
+        </div>
+      </div>
+    </header>
+
+    <ul class="listen-detail__entries">
+      @for (entry of entries(); track entry.id) {
+        <li class="listen-detail__entry">
+          @if (isEditing(entry.id)) {
+            <ng-container *ngTemplateOutlet="entryInline" />
+          } @else {
+            <div class="listen-detail__entry-body">
+              <p class="listen-detail__entry-text">{{ entry.text }}</p>
+              <p class="listen-detail__entry-meta">
+                {{ entry.authorName }}
+                @if (entry.createdAt) {
+                  · {{ entry.createdAt | date: 'short' }}
+                }
+              </p>
+            </div>
+            @if (canEditEntry(entry.authorUid)) {
+              <button
+                class="listen-detail__icon-btn"
+                type="button"
+                title="Eintrag bearbeiten"
+                aria-label="Eintrag bearbeiten"
+                (click)="openEdit(entry.id)"
+              >
+                <i class="listen-detail__action-icon" [ngClass]="iconClass('pen-to-square')" aria-hidden="true"></i>
+              </button>
+            }
+            @if (canDeleteEntry(entry.authorUid)) {
+              <button
+                class="listen-detail__icon-btn listen-detail__icon-btn--danger"
+                type="button"
+                title="Eintrag löschen"
+                aria-label="Eintrag löschen"
+                (click)="deleteEntry(entry.id, entry.authorUid)"
+              >
+                <i class="listen-detail__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+              </button>
+            }
+          }
+        </li>
+      } @empty {
+        @if (!isAdding()) {
+          <li class="listen-detail__empty">Noch keine Einträge.</li>
+        }
+      }
+      @if (isAdding()) {
+        <li class="listen-detail__entry">
+          <ng-container *ngTemplateOutlet="entryInline" />
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="listen-detail__empty">Liste nicht gefunden oder nicht sichtbar.</p>
+  }
+</section>
+
+<ng-template #entryInline>
+  <form class="listen-detail__inline-form" (submit)="saveForm(); $event.preventDefault()">
+    <mat-form-field class="listen-detail__inline-field" appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Eintrag</mat-label>
+      <input
+        matInput
+        [value]="entryText()"
+        (input)="onEntryInput($event)"
+        maxlength="500"
+        (keydown.escape)="closeForm()"
+      />
+    </mat-form-field>
+    <div class="listen-detail__inline-actions">
+      <button matButton type="button" (click)="closeForm()">Abbrechen</button>
+      <button matButton="filled" type="submit" [disabled]="saving() || !entryText().trim()">Speichern</button>
+    </div>
+  </form>
+</ng-template>

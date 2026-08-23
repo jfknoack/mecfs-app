@@ -1,0 +1,124 @@
+<section class="routinen">
+  <header class="routinen__header">
+    <div class="routinen__heading">
+      <h1 class="routinen__title">{{ title }}</h1>
+      @if (isAdmin()) {
+        <button
+          class="routinen__icon-btn"
+          type="button"
+          title="Routine hinzufügen"
+          aria-label="Routine hinzufügen"
+          (click)="toggleCreate()"
+        >
+          <i class="routinen__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+        </button>
+      }
+    </div>
+    <p class="routinen__subtitle">
+      Tagesabläufe mit Listen und Rezepten.
+      @if (!isAdmin()) {
+        Pflegen können nur Admins.
+      }
+    </p>
+  </header>
+
+  <div class="routinen__grid">
+    @if (!routinesReady()) {
+      <p class="routinen__empty">Routinen werden geladen…</p>
+    } @else {
+      @for (routine of routineItems(); track routine.id) {
+        <a class="routinen__card" [routerLink]="['/routinen', routine.id]">
+          <i
+            class="routinen__card-icon"
+            [ngClass]="iconClass('repeat')"
+            [style.color]="colorHex(routine.color)"
+            aria-hidden="true"
+          ></i>
+          <div class="routinen__card-body">
+            <h2 class="routinen__card-title">{{ routine.title }}</h2>
+            <p class="routinen__card-meta">
+              {{ recurrenceLabel(routine) }} · {{ timeLabel(routine) }} ·
+              {{ routine.visibility === 'public' ? 'Public' : 'Privat' }} ·
+              {{ routine.items.length }} Punkte
+            </p>
+          </div>
+        </a>
+      } @empty {
+        <p class="routinen__empty">Keine Routinen gefunden.</p>
+      }
+    }
+  </div>
+
+  @if (isAdmin() && showCreate()) {
+    <form class="routinen__create" [formGroup]="form" (ngSubmit)="createRoutine()">
+      <h2 class="routinen__create-title">Neue Routine anlegen</h2>
+      <mat-form-field appearance="outline">
+        <mat-label>Titel</mat-label>
+        <input matInput formControlName="title" maxlength="80" placeholder="z. B. Morgen Medikamente" />
+      </mat-form-field>
+      <div class="routinen__row">
+        <mat-form-field appearance="outline">
+          <mat-label>Datum</mat-label>
+          <input matInput [matDatepicker]="datePicker" formControlName="date" />
+          <mat-datepicker-toggle matIconSuffix [for]="datePicker" />
+          <mat-datepicker #datePicker />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Von</mat-label>
+          <input matInput type="time" formControlName="timeFrom" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Bis (optional)</mat-label>
+          <input matInput type="time" formControlName="timeTo" />
+        </mat-form-field>
+      </div>
+      <mat-form-field appearance="outline">
+        <mat-label>Wiederholung</mat-label>
+        <mat-select formControlName="recurrence" (selectionChange)="onRecurrenceChange()">
+          <mat-option value="once">Einmalig</mat-option>
+          <mat-option value="daily">Täglich</mat-option>
+          <mat-option value="weekly">Wöchentlich</mat-option>
+        </mat-select>
+      </mat-form-field>
+      @if (form.controls.recurrence.value === 'weekly') {
+        <div class="routinen__weekdays">
+          @for (day of weekdayOptions; track day.value) {
+            <button
+              class="routinen__weekday"
+              [class.routinen__weekday--selected]="isWeekdaySelected(day.value)"
+              type="button"
+              (click)="toggleWeekday(day.value)"
+            >
+              {{ day.label }}
+            </button>
+          }
+        </div>
+      }
+      <mat-form-field class="routinen__visibility" appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Sichtbarkeit</mat-label>
+        <mat-select formControlName="visibility">
+          <mat-option value="private">Privat</mat-option>
+          <mat-option value="public">Public</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <p class="routinen__label">Farbe</p>
+      <div class="routinen__colors">
+        @for (color of colorOptions; track color.name) {
+          <button
+            class="routinen__color"
+            [class.routinen__color--selected]="form.controls.color.value === color.name"
+            type="button"
+            [style.background]="color.hex"
+            [attr.title]="color.label"
+            [attr.aria-label]="color.label"
+            (click)="selectColor(color.name)"
+          ></button>
+        }
+      </div>
+      <div class="routinen__create-actions">
+        <button matButton type="button" (click)="toggleCreate()">Abbrechen</button>
+        <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+      </div>
+    </form>
+  }
+</section>
