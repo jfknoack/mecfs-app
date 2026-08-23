@@ -7,7 +7,7 @@ import {
   User,
 } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { environment } from '../../../environments/environment';
+import { AppConfigService } from '../config/app-config.service';
 import { firebaseAuth, firebaseDb, isFirebaseConfigured } from '../firebase/firebase-app';
 import { normalizeEmail, parseUserRole, isStaffRole, UserRole } from './auth.model';
 
@@ -86,7 +86,7 @@ export class Auth {
     () => !!this.calendarTokenState() && Date.now() < this.calendarTokenExpState(),
   );
 
-  constructor() {
+  constructor(private readonly appConfig: AppConfigService) {
     clearLegacySession();
 
     if (!isFirebaseConfigured()) {
@@ -182,13 +182,15 @@ export class Auth {
   }
 
   isPacingSuperuser(): boolean {
-    return normalizeEmail(this.emailState() ?? '') === normalizeEmail(environment.bootstrapAdminEmail);
+    return this.appConfig.isBootstrap(this.emailState() ?? '');
   }
 
   private async hydrate(user: User | null): Promise<void> {
     const seq = ++this.hydrateSeq;
 
     if (!user) {
+      this.appConfig.stopWatching();
+      this.appConfig.clear();
       this.clearSession();
       return;
     }
@@ -204,7 +206,9 @@ export class Auth {
       throw new UnverifiedEmailError();
     }
 
-    const bootstrap = normalizeEmail(environment.bootstrapAdminEmail);
+    await this.appConfig.refresh();
+    this.appConfig.startWatching();
+    const bootstrap = this.appConfig.bootstrapAdminEmail();
     let role: UserRole;
     let name = displayNameOf(user);
 

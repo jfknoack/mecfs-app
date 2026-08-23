@@ -2,9 +2,14 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Muss mit environment.bootstrapAdminEmail übereinstimmen.
+    function configPath() {
+      return /databases/$(database)/documents/config/app;
+    }
+
     function bootstrapEmail() {
-      return 'jfknoack@gmail.com';
+      return exists(configPath()) && 'bootstrapAdminEmail' in get(configPath()).data
+        ? get(configPath()).data.bootstrapAdminEmail.lower()
+        : '';
     }
 
     function verified() {
@@ -67,6 +72,11 @@ service cloud.firestore {
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 80
         && request.resource.data.role in ['user', 'admin', 'patient'];
+    }
+
+    match /config/{docId} {
+      allow read: if verified() && docId == 'app';
+      allow write: if false;
     }
 
     match /allowedUsers/{emailId} {

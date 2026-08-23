@@ -15,9 +15,9 @@ import {
   type QueryDocumentSnapshot,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { environment } from '../../../environments/environment';
 import { Auth } from '../auth/auth';
 import { AllowedUser, normalizeEmail, parseUserRole, UserRole } from '../auth/auth.model';
+import { AppConfigService } from '../config/app-config.service';
 import { firebaseDb, isFirebaseConfigured } from '../firebase/firebase-app';
 
 export class DuplicateAllowedUserError extends Error {
@@ -43,7 +43,10 @@ export class AllowedUserService {
   readonly users = this.usersState.asReadonly();
   readonly ready = this.readyState.asReadonly();
 
-  constructor(private readonly auth: Auth) {
+  constructor(
+    private readonly auth: Auth,
+    private readonly appConfig: AppConfigService,
+  ) {
     effect(() => {
       const uid = this.auth.uid();
       const isAdmin = this.auth.actualIsAdmin();
@@ -103,7 +106,7 @@ export class AllowedUserService {
   async deleteUser(email: string): Promise<void> {
     this.requireAdmin();
     const emailId = normalizeEmail(email);
-    if (emailId === normalizeEmail(environment.bootstrapAdminEmail)) {
+    if (this.appConfig.isBootstrap(emailId)) {
       throw new BootstrapUserError('Der Bootstrap-Admin kann nicht entfernt werden.');
     }
 
@@ -116,7 +119,7 @@ export class AllowedUserService {
   }
 
   isBootstrap(email: string): boolean {
-    return normalizeEmail(email) === normalizeEmail(environment.bootstrapAdminEmail);
+    return this.appConfig.isBootstrap(email);
   }
 
   private watchUsers(): void {

@@ -89,7 +89,7 @@ export class Kalender {
 
   protected readonly title = 'Kalender';
   protected readonly iconClass = listIconClass;
-  protected readonly calendarConfigured = this.google.isConfigured();
+  protected readonly calendarConfigured = this.google.isConfigured;
   protected readonly hasCalendarAccess = this.auth.hasCalendarAccess;
   protected readonly connecting = signal(false);
   protected readonly saving = signal(false);
@@ -162,6 +162,7 @@ export class Kalender {
   protected readonly calendarOptions = computed<CalendarOptions>(() => {
     this.routines.routines();
     this.google.revision();
+    this.google.isConfigured();
     this.hasCalendarAccess();
     return {
       plugins: [themePlugin, dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -263,7 +264,7 @@ export class Kalender {
   }
 
   protected openCreate(date = new Date(), allDay = true): void {
-    if (!this.calendarConfigured || !this.hasCalendarAccess()) {
+    if (!this.calendarConfigured() || !this.hasCalendarAccess()) {
       return;
     }
     this.editingId.set(null);

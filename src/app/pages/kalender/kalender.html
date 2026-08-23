@@ -2,7 +2,7 @@
   <header class="kalender__header">
     <div class="kalender__heading">
       <h1 class="kalender__title">{{ title }}</h1>
-      @if (calendarConfigured && hasCalendarAccess()) {
+      @if (calendarConfigured() && hasCalendarAccess()) {
         <button
           class="kalender__icon-btn"
           type="button"
@@ -19,10 +19,10 @@
     </p>
   </header>
 
-  @if (!calendarConfigured) {
+  @if (!calendarConfigured()) {
     <p class="kalender__hint">
-      Die Google-Kalender-ID fehlt noch in <code>src/environments/environment.ts</code>
-      (<code>googleCalendarId</code>).
+      Die Google-Kalender-ID fehlt noch. Bitte im Firestore-Dokument
+      <code>config/app</code> das Feld <code>googleCalendarId</code> setzen (siehe README).
     </p>
   } @else if (!hasCalendarAccess()) {
     <div class="kalender__connect">

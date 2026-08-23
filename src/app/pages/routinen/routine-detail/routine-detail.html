@@ -1,0 +1,339 @@
+<section class="routine-detail">
+  <a class="routine-detail__back" routerLink="/routinen">Zurück zu allen Routinen</a>
+
+  @if (!routineReady()) {
+    <p class="routine-detail__empty">Routine wird geladen…</p>
+  } @else if (routine(); as current) {
+    <header class="routine-detail__header">
+      <div class="routine-detail__heading">
+        <i
+          class="routine-detail__icon"
+          [ngClass]="iconClass('repeat')"
+          [style.color]="colorHex(current.color)"
+          aria-hidden="true"
+        ></i>
+        <div class="routine-detail__heading-body">
+          <div class="routine-detail__title-row">
+            <h1 class="routine-detail__title">{{ current.title }}</h1>
+            @if (isAdmin()) {
+              <button
+                class="routine-detail__icon-btn"
+                type="button"
+                title="Routine bearbeiten"
+                aria-label="Routine bearbeiten"
+                (click)="openRoutineForm()"
+              >
+                <i class="routine-detail__action-icon" [ngClass]="iconClass('pen-to-square')" aria-hidden="true"></i>
+              </button>
+              <button
+                class="routine-detail__icon-btn"
+                type="button"
+                title="Liste oder Rezept hinzufügen"
+                aria-label="Liste oder Rezept hinzufügen"
+                (click)="openItemForm()"
+              >
+                <i class="routine-detail__action-icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+              </button>
+              <button
+                class="routine-detail__icon-btn routine-detail__icon-btn--danger"
+                type="button"
+                title="Routine löschen"
+                aria-label="Routine löschen"
+                (click)="deleteRoutine()"
+              >
+                <i class="routine-detail__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+              </button>
+            }
+          </div>
+          <p class="routine-detail__meta">
+            {{ recurrenceLabel(current) }} · {{ timeLabel(current) }} ·
+            {{ current.visibility === 'public' ? 'Public' : 'Privat' }}
+          </p>
+          <p class="routine-detail__meta">Für den {{ formatDateLabel(occurrenceDate()) }}</p>
+        </div>
+      </div>
+    </header>
+
+    @if (isAdmin() && formMode() === 'routine') {
+      <form class="routine-detail__form" [formGroup]="routineForm" (submit)="saveForm(); $event.preventDefault()">
+        <h2 class="routine-detail__form-title">Routine bearbeiten</h2>
+        <mat-form-field appearance="outline">
+          <mat-label>Titel</mat-label>
+          <input matInput formControlName="title" maxlength="80" />
+        </mat-form-field>
+        <div class="routine-detail__row">
+          <mat-form-field appearance="outline">
+            <mat-label>Datum</mat-label>
+            <input matInput [matDatepicker]="datePicker" formControlName="date" />
+            <mat-datepicker-toggle matIconSuffix [for]="datePicker" />
+            <mat-datepicker #datePicker />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Von</mat-label>
+            <input matInput type="time" formControlName="timeFrom" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Bis (optional)</mat-label>
+            <input matInput type="time" formControlName="timeTo" />
+          </mat-form-field>
+        </div>
+        <mat-form-field appearance="outline">
+          <mat-label>Wiederholung</mat-label>
+          <mat-select formControlName="recurrence" (selectionChange)="onRecurrenceChange()">
+            <mat-option value="once">Einmalig</mat-option>
+            <mat-option value="daily">Täglich</mat-option>
+            <mat-option value="weekly">Wöchentlich</mat-option>
+          </mat-select>
+        </mat-form-field>
+        @if (routineForm.controls.recurrence.value === 'weekly') {
+          <div class="routine-detail__weekdays">
+            @for (day of weekdayOptions; track day.value) {
+              <button
+                class="routine-detail__weekday"
+                [class.routine-detail__weekday--selected]="isWeekdaySelected(day.value)"
+                type="button"
+                (click)="toggleWeekday(day.value)"
+              >
+                {{ day.label }}
+              </button>
+            }
+          </div>
+        }
+        <mat-form-field class="routine-detail__visibility" appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Sichtbarkeit</mat-label>
+          <mat-select formControlName="visibility">
+            <mat-option value="private">Privat</mat-option>
+            <mat-option value="public">Public</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <p class="routine-detail__label">Farbe</p>
+        <div class="routine-detail__colors">
+          @for (color of colorOptions; track color.name) {
+            <button
+              class="routine-detail__color"
+              [class.routine-detail__color--selected]="routineForm.controls.color.value === color.name"
+              type="button"
+              [style.background]="color.hex"
+              [attr.title]="color.label"
+              [attr.aria-label]="color.label"
+              (click)="selectColor(color.name)"
+            ></button>
+          }
+        </div>
+        <div class="routine-detail__form-actions">
+          <button matButton type="button" (click)="closeForm()">Abbrechen</button>
+          <button matButton="filled" type="submit" [disabled]="saving()">Speichern</button>
+        </div>
+      </form>
+    }
+
+    <div class="routine-detail__groups">
+      @for (group of itemGroups(); track group.key) {
+        <section class="routine-detail__group">
+          <div class="routine-detail__group-head">
+            <i
+              class="routine-detail__group-icon"
+              [ngClass]="group.kind === 'listEntry' ? listIconClass(group.icon) : iconClass(group.icon)"
+              aria-hidden="true"
+            ></i>
+            <h2 class="routine-detail__group-title">{{ group.title }}</h2>
+            @if (isAdmin()) {
+              <button
+                class="routine-detail__icon-btn"
+                type="button"
+                title="Inhalt hinzufügen"
+                aria-label="Inhalt hinzufügen"
+                (click)="openGroupForm(group)"
+              >
+                <i class="routine-detail__action-icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+              </button>
+            }
+          </div>
+          <ul class="routine-detail__items">
+            @for (item of group.items; track item.id) {
+              <li
+                class="routine-detail__item"
+                [class.routine-detail__item--done]="isItemChecked(current, occurrenceDate(), item.id)"
+              >
+                <mat-checkbox
+                  class="routine-detail__check"
+                  [checked]="isItemChecked(current, occurrenceDate(), item.id)"
+                  [aria-label]="'Erledigt: ' + item.text"
+                  (change)="toggleChecked(item.id, $event.checked)"
+                />
+                <div class="routine-detail__item-body">
+                  @if (item.kind === 'recipe') {
+                    <a class="routine-detail__recipe-link" [routerLink]="['/rezepte', item.recipeId]">{{ item.text }}</a>
+                    <p class="routine-detail__item-meta">Rezept</p>
+                  } @else {
+                    <p class="routine-detail__item-text">{{ item.text }}</p>
+                  }
+                </div>
+                @if (isAdmin()) {
+                  <button
+                    class="routine-detail__icon-btn routine-detail__icon-btn--danger"
+                    type="button"
+                    title="Punkt entfernen"
+                    aria-label="Punkt entfernen"
+                    (click)="deleteItem(item.id)"
+                  >
+                    <i class="routine-detail__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      } @empty {
+        <p class="routine-detail__empty">Noch keine Punkte.</p>
+      }
+    </div>
+
+    @if (isAdmin() && formMode() === 'item') {
+      <form class="routine-detail__form" (submit)="saveForm(); $event.preventDefault()">
+        <h2 class="routine-detail__form-title">Punkte hinzufügen</h2>
+        <mat-form-field appearance="outline">
+          <mat-label>Art</mat-label>
+          <mat-select [value]="itemKind()" (selectionChange)="onItemKindChange($event.value)">
+            <mat-option value="listEntry">Liste</mat-option>
+            <mat-option value="recipe">Rezept</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        @if (itemKind() === 'listEntry') {
+          @if (!draftList()) {
+            <mat-form-field appearance="outline">
+              <mat-label>Liste</mat-label>
+              <mat-select (selectionChange)="onListPicked($event.value)">
+                @for (list of listItems(); track list.id) {
+                  <mat-option [value]="list.id">{{ list.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          } @else if (draftList(); as list) {
+            <div class="routine-detail__group-head">
+              <i
+                class="routine-detail__group-icon"
+                [ngClass]="listIconClass(list.icon)"
+                aria-hidden="true"
+              ></i>
+              <h3 class="routine-detail__group-title">{{ list.name }}</h3>
+              <button
+                class="routine-detail__icon-btn"
+                type="button"
+                title="Listeninhalt hinzufügen"
+                aria-label="Listeninhalt hinzufügen"
+                [disabled]="loadingEntries() || !availableEntries().length"
+                (click)="startPickingEntry()"
+              >
+                <i class="routine-detail__action-icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+              </button>
+            </div>
+            <ul class="routine-detail__items">
+              @for (entry of draftEntries(); track entry.id) {
+                <li class="routine-detail__item">
+                  <div class="routine-detail__item-body">
+                    <p class="routine-detail__item-text">{{ entry.text }}</p>
+                  </div>
+                  <button
+                    class="routine-detail__icon-btn routine-detail__icon-btn--danger"
+                    type="button"
+                    title="Punkt entfernen"
+                    aria-label="Punkt entfernen"
+                    (click)="removeDraftEntry(entry.id)"
+                  >
+                    <i class="routine-detail__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+                  </button>
+                </li>
+              } @empty {
+                <li class="routine-detail__empty">
+                  @if (loadingEntries()) {
+                    Einträge werden geladen…
+                  } @else if (!availableEntries().length) {
+                    Alle Einträge sind schon in der Routine.
+                  } @else {
+                    Noch keine Inhalte. Plus neben dem Icon drücken.
+                  }
+                </li>
+              }
+            </ul>
+            @if (pickingEntry()) {
+              <mat-form-field appearance="outline">
+                <mat-label>Eintrag</mat-label>
+                <mat-select (selectionChange)="addDraftEntry($event.value)">
+                  @for (entry of availableEntries(); track entry.id) {
+                    <mat-option [value]="entry.id">{{ entry.text }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+          }
+        } @else {
+          <div class="routine-detail__group-head">
+            <i class="routine-detail__group-icon" [ngClass]="iconClass('utensils')" aria-hidden="true"></i>
+            <h3 class="routine-detail__group-title">Rezepte</h3>
+            <button
+              class="routine-detail__icon-btn"
+              type="button"
+              title="Rezept hinzufügen"
+              aria-label="Rezept hinzufügen"
+              [disabled]="!availableRecipes().length"
+              (click)="startPickingRecipe()"
+            >
+              <i class="routine-detail__action-icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+            </button>
+          </div>
+          <ul class="routine-detail__items">
+            @for (recipe of draftRecipes(); track recipe.id) {
+              <li class="routine-detail__item">
+                <div class="routine-detail__item-body">
+                  <p class="routine-detail__item-text">{{ recipe.title }}</p>
+                </div>
+                <button
+                  class="routine-detail__icon-btn routine-detail__icon-btn--danger"
+                  type="button"
+                  title="Rezept entfernen"
+                  aria-label="Rezept entfernen"
+                  (click)="removeDraftRecipe(recipe.id)"
+                >
+                  <i class="routine-detail__action-icon" [ngClass]="iconClass('trash-can')" aria-hidden="true"></i>
+                </button>
+              </li>
+            } @empty {
+              <li class="routine-detail__empty">
+                @if (!availableRecipes().length) {
+                  Alle Rezepte sind schon in der Routine.
+                } @else {
+                  Noch keine Rezepte. Plus neben dem Icon drücken.
+                }
+              </li>
+            }
+          </ul>
+          @if (pickingRecipe()) {
+            <mat-form-field appearance="outline">
+              <mat-label>Rezept</mat-label>
+              <mat-select (selectionChange)="addDraftRecipe($event.value)">
+                @for (recipe of availableRecipes(); track recipe.id) {
+                  <mat-option [value]="recipe.id">{{ recipe.title }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
+        }
+
+        <div class="routine-detail__form-actions">
+          <button matButton type="button" (click)="closeForm()">Abbrechen</button>
+          <button
+            matButton="filled"
+            type="submit"
+            [disabled]="saving() || loadingEntries() || !hasDraftItems()"
+          >
+            Speichern
+          </button>
+        </div>
+      </form>
+    }
+  } @else {
+    <p class="routine-detail__empty">Routine nicht gefunden.</p>
+  }
+</section>

@@ -1,6 +1,6 @@
-import { Injectable, signal } from '@angular/core';
-import { environment } from '../../../environments/environment';
+import { computed, Injectable, signal } from '@angular/core';
 import { Auth } from '../auth/auth';
+import { AppConfigService } from '../config/app-config.service';
 import {
   AppCalendarEvent,
   CalendarApiError,
@@ -16,14 +16,15 @@ export class GoogleCalendarService {
 
   readonly revision = this.revisionState.asReadonly();
 
-  constructor(private readonly auth: Auth) {}
+  readonly isConfigured = computed(() => this.appConfig.calendarConfigured());
 
-  isConfigured(): boolean {
-    return Boolean(environment.googleCalendarId.trim());
-  }
+  constructor(
+    private readonly auth: Auth,
+    private readonly appConfig: AppConfigService,
+  ) {}
 
   calendarId(): string {
-    return environment.googleCalendarId.trim();
+    return this.appConfig.googleCalendarId().trim();
   }
 
   async listEvents(timeMin: Date, timeMax: Date): Promise<AppCalendarEvent[]> {
@@ -107,7 +108,7 @@ export class GoogleCalendarService {
 
   private async request(path: string, init: RequestInit = {}, retry = true): Promise<Response> {
     const token = await this.auth.ensureCalendarAccess();
-    const response = await fetch(`${calendarUrl()}/${path}`, {
+    const response = await fetch(`${this.calendarUrl()}/${path}`, {
       ...init,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -127,10 +128,10 @@ export class GoogleCalendarService {
 
     return response;
   }
-}
 
-function calendarUrl(): string {
-  return `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(environment.googleCalendarId.trim())}`;
+  private calendarUrl(): string {
+    return `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(this.calendarId())}`;
+  }
 }
 
 async function errorMessage(response: Response): Promise<string> {

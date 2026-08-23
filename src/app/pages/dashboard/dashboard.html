@@ -4,7 +4,7 @@
     <p class="dashboard__text">Heute abhaken, morgen nur als Vorschau.</p>
   </header>
 
-  @if (calendarConfigured && !hasCalendarAccess()) {
+  @if (calendarConfigured() && !hasCalendarAccess()) {
     <div class="dashboard__connect">
       <p class="dashboard__hint">Google Kalender verbinden, damit Termine in den Spalten erscheinen.</p>
       <button matButton="filled" type="button" [disabled]="connecting()" (click)="connectCalendar()">
@@ -60,7 +60,7 @@
         <div class="dashboard__filters-group">
           <mat-checkbox
             [checked]="showGoogleEvents()"
-            [disabled]="!calendarConfigured"
+            [disabled]="!calendarConfigured()"
             (change)="toggleGoogleFilter($event.checked)"
           >
             Google Termine

@@ -81,7 +81,7 @@ export class Dashboard {
   protected readonly listIconClass = listIconClass;
   protected readonly isItemChecked = isItemChecked;
   protected readonly calendarEventTimeLabel = calendarEventTimeLabel;
-  protected readonly calendarConfigured = this.google.isConfigured();
+  protected readonly calendarConfigured = this.google.isConfigured;
   protected readonly hasCalendarAccess = this.auth.hasCalendarAccess;
   protected readonly connecting = signal(false);
   protected readonly calendarEvents = signal<AppCalendarEvent[]>([]);
@@ -110,6 +110,7 @@ export class Dashboard {
   constructor() {
     effect(() => {
       this.google.revision();
+      this.google.isConfigured();
       const access = this.hasCalendarAccess();
       untracked(() => {
         void this.loadCalendarEvents(access);
@@ -201,7 +202,7 @@ export class Dashboard {
   }
 
   private async loadCalendarEvents(access: boolean): Promise<void> {
-    if (!this.calendarConfigured || !access) {
+    if (!this.calendarConfigured() || !access) {
       this.calendarEvents.set([]);
       return;
     }
