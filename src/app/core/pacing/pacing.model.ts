@@ -158,6 +158,15 @@ export function difficultyContrast(value: number): string {
   return n >= 3 && n <= 6 ? '#1a1a1a' : '#ffffff';
 }
 
+/** Ruhe und Morgenenergie: höher ist besser, deshalb grün statt rot. */
+export function creditColor(value: number): string {
+  return difficultyColor(PACING_DIFFICULTY_MAX - clampDifficulty(value));
+}
+
+export function creditContrast(value: number): string {
+  return difficultyContrast(PACING_DIFFICULTY_MAX - clampDifficulty(value));
+}
+
 export function difficultyLabel(value: number): string {
   const n = clampDifficulty(value);
   if (n <= 2) {

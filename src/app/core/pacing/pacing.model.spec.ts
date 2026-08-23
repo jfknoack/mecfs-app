@@ -1,6 +1,8 @@
-import { suggestedBudgetFromBell } from './bell-score.model';
+import { budgetFromBellAndEnergy, suggestedBudgetFromBell } from './bell-score.model';
 import {
+  creditColor,
   dayBalance,
+  difficultyColor,
   frequentActivities,
   normalizePacingKind,
   PacingActivity,
@@ -91,6 +93,18 @@ describe('pacing.model', () => {
   it('suggests a smaller budget for a lower Bell score', () => {
     expect(suggestedBudgetFromBell(20)).toBeLessThan(suggestedBudgetFromBell(70));
     expect(suggestedBudgetFromBell(100)).toBeGreaterThan(suggestedBudgetFromBell(50));
+  });
+
+  it('scales the Bell budget down when morning energy is low', () => {
+    expect(budgetFromBellAndEnergy(70, 10)).toBe(suggestedBudgetFromBell(70));
+    expect(budgetFromBellAndEnergy(70, 5)).toBe(Math.round(suggestedBudgetFromBell(70) * 0.5));
+    expect(budgetFromBellAndEnergy(70, 0)).toBe(1);
+    expect(budgetFromBellAndEnergy(70, 2)).toBeLessThan(budgetFromBellAndEnergy(70, 8));
+  });
+
+  it('uses green for high rest credit and red for low rest credit', () => {
+    expect(creditColor(10)).toBe(difficultyColor(0));
+    expect(creditColor(0)).toBe(difficultyColor(10));
   });
 
   it('hints at delayed PEM after a heavy day', () => {

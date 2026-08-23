@@ -142,3 +142,11 @@ export function suggestedBudgetFromBell(score: BellScore | null): number {
   }
   return 36;
 }
+
+/** Bell-Budget, skaliert mit der Morgenenergie (0–10). Weniger Energie, weniger Punkte. */
+export function budgetFromBellAndEnergy(score: BellScore | null, energy: number): number {
+  const base = suggestedBudgetFromBell(score);
+  const n = typeof energy === 'number' && Number.isFinite(energy) ? energy : 0;
+  const factor = Math.min(10, Math.max(0, Math.round(n))) / 10;
+  return Math.min(80, Math.max(1, Math.round(base * factor) || 1));
+}

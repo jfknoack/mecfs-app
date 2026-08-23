@@ -9,9 +9,12 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { listIconClass } from '../../../core/lists/list-icons';
 import {
+  creditColor,
+  creditContrast,
   DIFFICULTY_OPTIONS,
   difficultyColor,
   difficultyContrast,
+  isRestKind,
   PACING_KIND_OPTIONS,
   PacingActivity,
   PacingKind,
@@ -60,8 +63,7 @@ export class PacingAktivitaeten {
   protected readonly iconClass = listIconClass;
   protected readonly kindOptions = PACING_KIND_OPTIONS;
   protected readonly difficultyOptions = DIFFICULTY_OPTIONS;
-  protected readonly colorOf = difficultyColor;
-  protected readonly contrastOf = difficultyContrast;
+  protected readonly isRest = isRestKind;
   protected readonly saving = signal(false);
   protected readonly editingId = signal<string | null>(null);
   protected readonly adding = signal(false);
@@ -120,6 +122,16 @@ export class PacingAktivitaeten {
   protected closeForm(): void {
     this.adding.set(false);
     this.editingId.set(null);
+  }
+
+  protected colorOf(value: number): string {
+    return isRestKind(this.form.controls.kind.value) ? creditColor(value) : difficultyColor(value);
+  }
+
+  protected contrastOf(value: number): string {
+    return isRestKind(this.form.controls.kind.value)
+      ? creditContrast(value)
+      : difficultyContrast(value);
   }
 
   protected selectCost(value: number): void {

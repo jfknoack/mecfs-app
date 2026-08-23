@@ -121,8 +121,10 @@
                 [class.pacing-card--open]="!log.done"
                 [class.pacing-card--past]="!column.today"
                 [class.pacing-card--rest]="isRest(log.kind)"
-                [style.--pacing-card-color]="isRest(log.kind) ? '#00838f' : colorOf(log.difficulty)"
-                [style.--pacing-card-contrast]="isRest(log.kind) ? '#ffffff' : contrastOf(log.difficulty)"
+                [style.--pacing-card-color]="isRest(log.kind) ? creditColorOf(log.difficulty) : colorOf(log.difficulty)"
+                [style.--pacing-card-contrast]="
+                  isRest(log.kind) ? creditContrastOf(log.difficulty) : contrastOf(log.difficulty)
+                "
                 tabindex="0"
                 role="button"
                 (click)="openEdit(log)"
@@ -187,7 +189,9 @@
       aria-modal="true"
       aria-labelledby="pacing-popover-title"
       [style.--pacing-popover-accent]="
-        selectedRest() ? '#00838f' : colorOf(form.controls.difficulty.value)
+        selectedRest()
+          ? creditColorOf(form.controls.difficulty.value)
+          : colorOf(form.controls.difficulty.value)
       "
     >
       <div class="pacing-popover__accent" aria-hidden="true"></div>
@@ -253,8 +257,8 @@
                 class="pacing__score"
                 type="button"
                 [class.pacing__score--selected]="form.getRawValue().difficulty === option.value"
-                [style.background]="colorOf(option.value)"
-                [style.color]="contrastOf(option.value)"
+                [style.background]="selectedRest() ? creditColorOf(option.value) : colorOf(option.value)"
+                [style.color]="selectedRest() ? creditContrastOf(option.value) : contrastOf(option.value)"
                 (click)="selectDifficulty(option.value)"
               >
                 {{ option.label }}
@@ -309,8 +313,8 @@
       <form class="pacing-popover__form" [formGroup]="dayForm" (ngSubmit)="saveDay()">
         @if (dayEditable()) {
           <p class="pacing__hint">
-            Wie voll ist der Tank heute früh? Das Budget gilt für den ganzen Tag, Pausen füllen
-            wieder auf.
+            Wie voll ist der Tank heute früh? Weniger Morgenenergie senkt das Budget aus dem
+            Bell-Score. Pausen füllen am Tag wieder auf.
           </p>
         } @else {
           <p class="pacing__hint">Dieser Check-in kann nicht mehr geändert werden.</p>
@@ -324,8 +328,8 @@
               class="pacing__score"
               type="button"
               [class.pacing__score--selected]="dayForm.getRawValue().energy === option.value"
-              [style.background]="colorOf(option.value)"
-              [style.color]="contrastOf(option.value)"
+              [style.background]="creditColorOf(option.value)"
+              [style.color]="creditContrastOf(option.value)"
               (click)="selectEnergy(option.value)"
             >
               {{ option.label }}
@@ -333,7 +337,7 @@
           }
         </div>
         <mat-form-field appearance="outline">
-          <mat-label>Tagesbudget</mat-label>
+          <mat-label>Tagesbudget aus Bell und Morgenenergie</mat-label>
           <input matInput type="number" min="1" max="80" formControlName="budget" />
         </mat-form-field>
         <mat-checkbox formControlName="pem">PEM / Crash heute</mat-checkbox>

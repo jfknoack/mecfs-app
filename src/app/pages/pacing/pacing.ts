@@ -9,8 +9,11 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { listIconClass } from '../../core/lists/list-icons';
+import { budgetFromBellAndEnergy } from '../../core/pacing/bell-score.model';
 import {
   costSign,
+  creditColor,
+  creditContrast,
   dayBalance,
   DIFFICULTY_OPTIONS,
   difficultyColor,
@@ -99,6 +102,8 @@ export class Pacing {
   protected readonly iconClass = listIconClass;
   protected readonly colorOf = difficultyColor;
   protected readonly contrastOf = difficultyContrast;
+  protected readonly creditColorOf = creditColor;
+  protected readonly creditContrastOf = creditContrast;
   protected readonly difficultyText = difficultyLabel;
   protected readonly restText = restCreditLabel;
   protected readonly kindLabel = pacingKindLabel;
@@ -276,10 +281,11 @@ export class Pacing {
     this.popover.set('day');
     this.dayForm.enable();
     const day = this.pacing.dayByDate(date);
+    const energy = day?.energy ?? 6;
     this.dayForm.reset({
-      energy: day?.energy ?? 6,
+      energy,
       pem: Boolean(day?.pem),
-      budget: day?.budget ?? this.pacing.lastBudget(),
+      budget: day?.budget ?? budgetFromBellAndEnergy(this.pacing.bellScore(), energy),
     });
     if (!isPacingLogToday(date)) {
       this.dayForm.disable({ emitEvent: false });
@@ -323,6 +329,7 @@ export class Pacing {
       return;
     }
     this.dayForm.controls.energy.setValue(value);
+    this.dayForm.controls.budget.setValue(budgetFromBellAndEnergy(this.pacing.bellScore(), value));
   }
 
   protected async saveLog(): Promise<void> {
