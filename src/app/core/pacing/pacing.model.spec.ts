@@ -3,6 +3,7 @@ import {
   creditColor,
   dayBalance,
   difficultyColor,
+  scaleColor,
   frequentActivities,
   normalizePacingKind,
   PacingActivity,
@@ -105,6 +106,13 @@ describe('pacing.model', () => {
   it('uses green for high rest credit and red for low rest credit', () => {
     expect(creditColor(10)).toBe(difficultyColor(0));
     expect(creditColor(0)).toBe(difficultyColor(10));
+  });
+
+  it('keeps green on the cheap/helpful side of the 0–10 scale', () => {
+    expect(scaleColor(0, false)).toBe(difficultyColor(0));
+    expect(scaleColor(10, false)).toBe(difficultyColor(10));
+    expect(scaleColor(0, true)).toBe(creditColor(0));
+    expect(scaleColor(10, true)).toBe(creditColor(10));
   });
 
   it('hints at delayed PEM after a heavy day', () => {

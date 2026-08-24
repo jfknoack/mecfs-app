@@ -2,29 +2,30 @@
   <header class="pacing__header">
     <div class="pacing__heading">
       <h1 class="pacing__title">{{ title }}</h1>
-      <a
-        class="pacing__icon-btn"
-        routerLink="/pacing/aktivitaeten"
-        title="Aktivitäten"
-        aria-label="Aktivitäten"
-      >
-        <i class="pacing__icon" [ngClass]="iconClass('list')" aria-hidden="true"></i>
-      </a>
-      @if (canLog()) {
-        <button
-          class="pacing__icon-btn"
-          type="button"
-          title="Heute eintragen"
-          aria-label="Heute eintragen"
-          (click)="toggleAdd()"
-        >
-          <i class="pacing__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
-        </button>
-      }
+      <div class="pacing__views" role="radiogroup" aria-label="Zeitraum">
+        @for (option of viewOptions; track option.value) {
+          <button
+            class="pacing__view"
+            type="button"
+            role="radio"
+            [attr.aria-checked]="viewRange() === option.value"
+            [attr.aria-label]="option.label"
+            [title]="option.label"
+            [class.pacing__view--active]="viewRange() === option.value"
+            (click)="setViewRange(option.value)"
+          >
+            <span class="pacing__view-icon" [attr.data-cols]="option.bars.length" aria-hidden="true">
+              @for (bar of option.bars; track bar) {
+                <span></span>
+              }
+            </span>
+          </button>
+        }
+      </div>
     </div>
     <p class="pacing__text">
-      Envelope für heute: Aktivitäten kosten Energie, Pausen geben sie zurück. Gestern und
-      Vorgestern bleiben sichtbar, weil PEM oft erst 24–48 Stunden später kommt.
+      Envelope für heute: Aktivitäten kosten Energie, Pausen geben sie zurück. PEM kommt oft erst
+      24–48 Stunden später — deshalb kannst du Heute, 3 Tage oder die ganze Woche anzeigen.
       @if (bellScore() !== null) {
         Bell-Score {{ bellScore() }}.
       }
@@ -32,22 +33,31 @@
         Aktivitäten anlegen geht, Einträge und Bewertung am Tag setzt der Client.
       }
     </p>
+    <div class="pacing__actions">
+      <a class="pacing__action" routerLink="/pacing/aktivitaeten">
+        <i class="pacing__icon" [ngClass]="iconClass('list')" aria-hidden="true"></i>
+        Aktivitäten
+      </a>
+      @if (canLog()) {
+        <button
+          class="pacing__action pacing__action--primary"
+          type="button"
+          (click)="toggleAdd()"
+        >
+          <i class="pacing__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+          Hinzufügen
+        </button>
+      }
+    </div>
   </header>
 
-  <div class="pacing__week" aria-label="Woche">
-    @for (day of weekDays(); track day.key) {
-      <div
-        class="pacing__week-day"
-        [class.pacing__week-day--today]="day.today"
-        [class.pacing__week-day--empty]="!day.zone"
-        [style.--pacing-zone]="day.zone ? zoneColor(day.zone) : 'var(--mat-sys-outline-variant)'"
-      >
-        <span>{{ day.weekday }}</span>
-      </div>
-    }
-  </div>
-
-  <div class="pacing__board">
+  <div
+    #board
+    class="pacing__board"
+    [class.pacing__board--today]="viewRange() === 'today'"
+    [class.pacing__board--three]="viewRange() === 'three'"
+    [class.pacing__board--week]="viewRange() === 'week'"
+  >
     @for (column of columns(); track column.key) {
       <section
         class="pacing__column"
@@ -121,10 +131,8 @@
                 [class.pacing-card--open]="!log.done"
                 [class.pacing-card--past]="!column.today"
                 [class.pacing-card--rest]="isRest(log.kind)"
-                [style.--pacing-card-color]="isRest(log.kind) ? creditColorOf(log.difficulty) : colorOf(log.difficulty)"
-                [style.--pacing-card-contrast]="
-                  isRest(log.kind) ? creditContrastOf(log.difficulty) : contrastOf(log.difficulty)
-                "
+                [style.--pacing-card-color]="colorOf(log.difficulty, isRest(log.kind))"
+                [style.--pacing-card-contrast]="contrastOf(log.difficulty, isRest(log.kind))"
                 tabindex="0"
                 role="button"
                 (click)="openEdit(log)"
@@ -188,11 +196,7 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="pacing-popover-title"
-      [style.--pacing-popover-accent]="
-        selectedRest()
-          ? creditColorOf(form.controls.difficulty.value)
-          : colorOf(form.controls.difficulty.value)
-      "
+      [style.--pacing-popover-accent]="colorOf(selectedDifficulty(), selectedRest())"
     >
       <div class="pacing-popover__accent" aria-hidden="true"></div>
       <header class="pacing-popover__header">
@@ -244,21 +248,29 @@
           <mat-checkbox formControlName="done">Erledigt</mat-checkbox>
           <p class="pacing__label">
             @if (selectedRest()) {
-              Wie viel hat die Pause zurückgegeben? {{ form.getRawValue().difficulty }} ·
-              {{ restText(form.getRawValue().difficulty) }}
+              Wie viel hat die Pause zurückgegeben? {{ selectedDifficulty() }} ·
+              {{ restText(selectedDifficulty()) }}
             } @else {
-              Wie teuer war es? {{ form.getRawValue().difficulty }} ·
-              {{ difficultyText(form.getRawValue().difficulty) }}
+              Wie teuer war es? {{ selectedDifficulty() }} ·
+              {{ difficultyText(selectedDifficulty()) }}
             }
           </p>
-          <div class="pacing__scores">
+          <div
+            class="pacing__scores"
+            [class.pacing__scores--credit]="selectedRest()"
+            [attr.aria-label]="
+              selectedRest()
+                ? 'Gutschrift von 0 bis 10, rechts ist grün'
+                : 'Aufwand von 0 bis 10, links ist grün'
+            "
+          >
             @for (option of difficultyOptions; track option.value) {
               <button
                 class="pacing__score"
                 type="button"
-                [class.pacing__score--selected]="form.getRawValue().difficulty === option.value"
-                [style.background]="selectedRest() ? creditColorOf(option.value) : colorOf(option.value)"
-                [style.color]="selectedRest() ? creditContrastOf(option.value) : contrastOf(option.value)"
+                [class.pacing__score--selected]="selectedDifficulty() === option.value"
+                [style.background]="colorOf(option.value, selectedRest())"
+                [style.color]="contrastOf(option.value, selectedRest())"
                 (click)="selectDifficulty(option.value)"
               >
                 {{ option.label }}
@@ -320,16 +332,19 @@
           <p class="pacing__hint">Dieser Check-in kann nicht mehr geändert werden.</p>
         }
         <p class="pacing__label">
-          Energie morgens {{ dayForm.getRawValue().energy }}/10
+          Energie morgens {{ selectedEnergy() }}/10
         </p>
-        <div class="pacing__scores">
+        <div
+          class="pacing__scores pacing__scores--credit"
+          aria-label="Morgenenergie von 0 bis 10, rechts ist grün"
+        >
           @for (option of difficultyOptions; track option.value) {
             <button
               class="pacing__score"
               type="button"
-              [class.pacing__score--selected]="dayForm.getRawValue().energy === option.value"
-              [style.background]="creditColorOf(option.value)"
-              [style.color]="creditContrastOf(option.value)"
+              [class.pacing__score--selected]="selectedEnergy() === option.value"
+              [style.background]="colorOf(option.value, true)"
+              [style.color]="contrastOf(option.value, true)"
               (click)="selectEnergy(option.value)"
             >
               {{ option.label }}

@@ -167,6 +167,15 @@ export function creditContrast(value: number): string {
   return difficultyContrast(PACING_DIFFICULTY_MAX - clampDifficulty(value));
 }
 
+/** Minuspunkte: links grün, rechts rot. Pluspunkte: links rot, rechts grün. */
+export function scaleColor(value: number, plusPoints: boolean): string {
+  return plusPoints ? creditColor(value) : difficultyColor(value);
+}
+
+export function scaleContrast(value: number, plusPoints: boolean): string {
+  return plusPoints ? creditContrast(value) : difficultyContrast(value);
+}
+
 export function difficultyLabel(value: number): string {
   const n = clampDifficulty(value);
   if (n <= 2) {

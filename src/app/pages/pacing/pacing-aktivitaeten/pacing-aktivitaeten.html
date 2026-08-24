@@ -5,13 +5,12 @@
       <h1 class="pacing-aktivitaeten__title">{{ title }}</h1>
       @if (canManage()) {
         <button
-          class="pacing-aktivitaeten__icon-btn"
+          class="pacing-aktivitaeten__action"
           type="button"
-          title="Aktivität hinzufügen"
-          aria-label="Aktivität hinzufügen"
           (click)="openAdd()"
         >
           <i class="pacing-aktivitaeten__icon" [ngClass]="iconClass('plus')" aria-hidden="true"></i>
+          Hinzufügen
         </button>
       }
     </div>
@@ -65,32 +64,34 @@
                 </p>
               </div>
               @if (canManage()) {
-                <button
-                  class="pacing-aktivitaeten__icon-btn"
-                  type="button"
-                  title="Bearbeiten"
-                  aria-label="Bearbeiten"
-                  (click)="openEdit(activity.id)"
-                >
-                  <i
-                    class="pacing-aktivitaeten__icon"
-                    [ngClass]="iconClass('pen-to-square')"
-                    aria-hidden="true"
-                  ></i>
-                </button>
-                <button
-                  class="pacing-aktivitaeten__icon-btn pacing-aktivitaeten__icon-btn--danger"
-                  type="button"
-                  title="Löschen"
-                  aria-label="Löschen"
-                  (click)="deleteActivity(activity.id)"
-                >
-                  <i
-                    class="pacing-aktivitaeten__icon"
-                    [ngClass]="iconClass('trash-can')"
-                    aria-hidden="true"
-                  ></i>
-                </button>
+                <div class="pacing-aktivitaeten__item-actions">
+                  <button
+                    class="pacing-aktivitaeten__icon-btn"
+                    type="button"
+                    title="Bearbeiten"
+                    aria-label="Bearbeiten"
+                    (click)="openEdit(activity.id)"
+                  >
+                    <i
+                      class="pacing-aktivitaeten__icon"
+                      [ngClass]="iconClass('pen-to-square')"
+                      aria-hidden="true"
+                    ></i>
+                  </button>
+                  <button
+                    class="pacing-aktivitaeten__icon-btn pacing-aktivitaeten__icon-btn--danger"
+                    type="button"
+                    title="Löschen"
+                    aria-label="Löschen"
+                    (click)="deleteActivity(activity.id)"
+                  >
+                    <i
+                      class="pacing-aktivitaeten__icon"
+                      [ngClass]="iconClass('trash-can')"
+                      aria-hidden="true"
+                    ></i>
+                  </button>
+                </div>
               }
             }
           </li>
@@ -137,20 +138,28 @@
       <textarea matInput formControlName="description" rows="2" maxlength="2000"></textarea>
     </mat-form-field>
     <p class="pacing-aktivitaeten__cost-label">
-      @if (isRest(form.getRawValue().kind)) {
-        Typische Gutschrift {{ form.getRawValue().energyCost }}
+      @if (creditScale()) {
+        Typische Gutschrift {{ selectedCost() }}
       } @else {
-        Typischer Preis {{ form.getRawValue().energyCost }}
+        Typischer Preis {{ selectedCost() }}
       }
     </p>
-    <div class="pacing-aktivitaeten__scores">
+    <div
+      class="pacing-aktivitaeten__scores"
+      [class.pacing-aktivitaeten__scores--credit]="creditScale()"
+      [attr.aria-label]="
+        creditScale()
+          ? 'Gutschrift von 0 bis 10, rechts ist grün'
+          : 'Aufwand von 0 bis 10, links ist grün'
+      "
+    >
       @for (option of difficultyOptions; track option.value) {
         <button
           class="pacing-aktivitaeten__score"
           type="button"
-          [class.pacing-aktivitaeten__score--selected]="form.getRawValue().energyCost === option.value"
-          [style.background]="colorOf(option.value)"
-          [style.color]="contrastOf(option.value)"
+          [class.pacing-aktivitaeten__score--selected]="selectedCost() === option.value"
+          [style.background]="colorOf(option.value, creditScale())"
+          [style.color]="contrastOf(option.value, creditScale())"
           (click)="selectCost(option.value)"
         >
           {{ option.label }}

@@ -1,5 +1,14 @@
 import { NgClass } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -12,13 +21,11 @@ import { listIconClass } from '../../core/lists/list-icons';
 import { budgetFromBellAndEnergy } from '../../core/pacing/bell-score.model';
 import {
   costSign,
-  creditColor,
-  creditContrast,
   dayBalance,
   DIFFICULTY_OPTIONS,
-  difficultyColor,
-  difficultyContrast,
   difficultyLabel,
+  scaleColor,
+  scaleContrast,
   envelopeZoneColor,
   frequentActivities,
   isPacingLogToday,
@@ -57,17 +64,66 @@ interface PacingDayColumn {
   hint: string | null;
 }
 
-interface PacingWeekDay {
-  key: string;
-  weekday: string;
-  today: boolean;
-  zone: PacingDayBalance['zone'] | null;
-}
-
 interface ActivityGroup {
   value: PacingKind;
   label: string;
   items: PacingActivity[];
+}
+
+type PacingViewRange = 'today' | 'three' | 'week';
+
+const PACING_VIEW_STORAGE_KEY = 'mecfs.pacing.view';
+const PACING_VIEW_OPTIONS: ReadonlyArray<{
+  value: PacingViewRange;
+  label: string;
+  bars: readonly number[];
+}> = [
+  { value: 'today', label: 'Heute, eine Spalte', bars: [0] },
+  { value: 'three', label: '3 Tage, drei Spalten', bars: [0, 1, 2] },
+  { value: 'week', label: 'Woche, mehrere Spalten', bars: [0, 1, 2, 3, 4, 5] },
+];
+
+function readPacingViewRange(): PacingViewRange {
+  try {
+    const stored = localStorage.getItem(PACING_VIEW_STORAGE_KEY);
+    if (stored === 'today' || stored === 'three' || stored === 'week') {
+      return stored;
+    }
+  } catch {
+    return 'three';
+  }
+  return 'three';
+}
+
+function persistPacingViewRange(view: PacingViewRange): void {
+  try {
+    localStorage.setItem(PACING_VIEW_STORAGE_KEY, view);
+  } catch {
+    // Private mode or quota — keep the in-memory choice.
+  }
+}
+
+function viewDayCount(view: PacingViewRange): number {
+  if (view === 'today') {
+    return 1;
+  }
+  if (view === 'week') {
+    return 7;
+  }
+  return 3;
+}
+
+function columnTitle(key: string, today: string): string {
+  if (key === today) {
+    return 'Heute';
+  }
+  if (key === addDateKeyDays(today, -1)) {
+    return 'Gestern';
+  }
+  if (key === addDateKeyDays(today, -2)) {
+    return 'Vorgestern';
+  }
+  return parseDateKey(key).toLocaleDateString('de-DE', { weekday: 'long' });
 }
 
 @Component({
@@ -100,10 +156,8 @@ export class Pacing {
 
   protected readonly title = 'Pacing';
   protected readonly iconClass = listIconClass;
-  protected readonly colorOf = difficultyColor;
-  protected readonly contrastOf = difficultyContrast;
-  protected readonly creditColorOf = creditColor;
-  protected readonly creditContrastOf = creditContrast;
+  protected readonly colorOf = scaleColor;
+  protected readonly contrastOf = scaleContrast;
   protected readonly difficultyText = difficultyLabel;
   protected readonly restText = restCreditLabel;
   protected readonly kindLabel = pacingKindLabel;
@@ -119,6 +173,17 @@ export class Pacing {
   protected readonly popover = signal<PacingPopover | null>(null);
   protected readonly viewingDayKey = signal<string | null>(null);
   protected readonly saving = signal(false);
+  protected readonly viewRange = signal<PacingViewRange>(readPacingViewRange());
+  protected readonly viewOptions = PACING_VIEW_OPTIONS;
+  private readonly board = viewChild<ElementRef<HTMLElement>>('board');
+
+  constructor() {
+    afterNextRender(() => {
+      if (this.viewRange() === 'week') {
+        this.scrollTodayIntoView();
+      }
+    });
+  }
 
   protected readonly form = this.formBuilder.nonNullable.group({
     date: [todayDateKey(), Validators.required],
@@ -134,46 +199,42 @@ export class Pacing {
     budget: this.formBuilder.nonNullable.control(20, [Validators.required, Validators.min(1)]),
   });
 
+  private readonly activityId = toSignal(this.form.controls.activityId.valueChanges, {
+    initialValue: this.form.controls.activityId.value,
+  });
+  protected readonly selectedDifficulty = toSignal(this.form.controls.difficulty.valueChanges, {
+    initialValue: this.form.controls.difficulty.value,
+  });
+  protected readonly selectedEnergy = toSignal(this.dayForm.controls.energy.valueChanges, {
+    initialValue: this.dayForm.controls.energy.value,
+  });
+
   protected readonly columns = computed<PacingDayColumn[]>(() => {
     const today = todayDateKey();
+    const count = viewDayCount(this.viewRange());
     const priorKey = addDateKeyDays(today, -2);
     const priorBalance = dayBalance(this.pacing.logsOnDate(priorKey), this.pacing.budgetFor(priorKey));
-    return [
-      { key: priorKey, name: 'Vorgestern', today: false },
-      { key: addDateKeyDays(today, -1), name: 'Gestern', today: false },
-      { key: today, name: 'Heute', today: true },
-    ].map((column) => {
-      const logs = this.pacing.logsOnDate(column.key);
-      const day = this.pacing.dayByDate(column.key);
-      const balance = dayBalance(logs, this.pacing.budgetFor(column.key));
+    return Array.from({ length: count }, (_, index) => {
+      const key = addDateKeyDays(today, index - (count - 1));
+      const logs = this.pacing.logsOnDate(key);
+      const day = this.pacing.dayByDate(key);
+      const balance = dayBalance(logs, this.pacing.budgetFor(key));
       return {
-        ...column,
+        key,
+        name: columnTitle(key, today),
+        today: key === today,
         logs,
         day,
         balance,
-        hint: column.today
-          ? pemPatternHint({
-              todayEnergy: day ? day.energy : null,
-              todayPem: Boolean(day?.pem),
-              priorNet: priorBalance.net,
-              priorBudget: priorBalance.budget,
-            })
-          : null,
-      };
-    });
-  });
-
-  protected readonly weekDays = computed<PacingWeekDay[]>(() => {
-    const today = todayDateKey();
-    return Array.from({ length: 7 }, (_, index) => {
-      const key = addDateKeyDays(today, index - 6);
-      const logs = this.pacing.logsOnDate(key);
-      const day = this.pacing.dayByDate(key);
-      return {
-        key,
-        weekday: parseDateKey(key).toLocaleDateString('de-DE', { weekday: 'short' }),
-        today: key === today,
-        zone: logs.length || day ? dayBalance(logs, this.pacing.budgetFor(key)).zone : null,
+        hint:
+          key === today
+            ? pemPatternHint({
+                todayEnergy: day ? day.energy : null,
+                todayPem: Boolean(day?.pem),
+                priorNet: priorBalance.net,
+                priorBudget: priorBalance.budget,
+              })
+            : null,
       };
     });
   });
@@ -196,8 +257,7 @@ export class Pacing {
   });
 
   protected readonly selectedActivity = computed(() => {
-    const id = this.form.controls.activityId.value;
-    return this.pacing.activityById(id) ?? null;
+    return this.pacing.activityById(this.activityId()) ?? null;
   });
 
   protected readonly selectedRest = computed(() => {
@@ -238,6 +298,14 @@ export class Pacing {
     this.openCreate();
   }
 
+  protected setViewRange(view: PacingViewRange): void {
+    this.viewRange.set(view);
+    persistPacingViewRange(view);
+    if (view === 'week') {
+      setTimeout(() => this.scrollTodayIntoView());
+    }
+  }
+
   protected openCreate(activityId?: string): void {
     if (!this.canLog()) {
       return;
@@ -246,7 +314,6 @@ export class Pacing {
       (activityId ? this.pacing.activityById(activityId) : undefined) ?? this.activities()[0];
     this.editingLogId.set(null);
     this.viewingDayKey.set(null);
-    this.popover.set('log');
     this.form.enable();
     this.form.reset({
       date: todayDateKey(),
@@ -255,12 +322,12 @@ export class Pacing {
       difficulty: activity ? suggestedCost(activity, this.pacing.logs()) : 3,
       done: true,
     });
+    this.popover.set('log');
   }
 
   protected openEdit(log: PacingLog): void {
     this.editingLogId.set(log.id);
     this.viewingDayKey.set(null);
-    this.popover.set('log');
     this.form.enable();
     const activityId = this.pacing.activityById(log.activityId)?.id ?? this.activities()[0]?.id ?? '';
     this.form.reset({
@@ -273,12 +340,12 @@ export class Pacing {
     if (!isPacingLogToday(log.date)) {
       this.form.disable({ emitEvent: false });
     }
+    this.popover.set('log');
   }
 
   protected openDay(date: string): void {
     this.editingLogId.set(null);
     this.viewingDayKey.set(date);
-    this.popover.set('day');
     this.dayForm.enable();
     const day = this.pacing.dayByDate(date);
     const energy = day?.energy ?? 6;
@@ -290,6 +357,7 @@ export class Pacing {
     if (!isPacingLogToday(date)) {
       this.dayForm.disable({ emitEvent: false });
     }
+    this.popover.set('day');
   }
 
   protected closePopover(): void {
@@ -431,5 +499,11 @@ export class Pacing {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  private scrollTodayIntoView(): void {
+    this.board()?.nativeElement
+      .querySelector<HTMLElement>('.pacing__column--today')
+      ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
   }
 }

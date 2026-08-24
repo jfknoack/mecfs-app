@@ -1,5 +1,6 @@
 import { DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,15 +10,13 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { listIconClass } from '../../../core/lists/list-icons';
 import {
-  creditColor,
-  creditContrast,
   DIFFICULTY_OPTIONS,
-  difficultyColor,
-  difficultyContrast,
   isRestKind,
   PACING_KIND_OPTIONS,
   PacingActivity,
   PacingKind,
+  scaleColor,
+  scaleContrast,
   suggestedCost,
 } from '../../../core/pacing/pacing.model';
 import { Auth } from '../../../core/auth/auth';
@@ -64,6 +63,8 @@ export class PacingAktivitaeten {
   protected readonly kindOptions = PACING_KIND_OPTIONS;
   protected readonly difficultyOptions = DIFFICULTY_OPTIONS;
   protected readonly isRest = isRestKind;
+  protected readonly colorOf = scaleColor;
+  protected readonly contrastOf = scaleContrast;
   protected readonly saving = signal(false);
   protected readonly editingId = signal<string | null>(null);
   protected readonly adding = signal(false);
@@ -76,6 +77,14 @@ export class PacingAktivitaeten {
     kind: this.formBuilder.nonNullable.control<PacingKind>('household'),
     energyCost: this.formBuilder.nonNullable.control(3),
   });
+
+  protected readonly selectedKind = toSignal(this.form.controls.kind.valueChanges, {
+    initialValue: this.form.controls.kind.value,
+  });
+  protected readonly selectedCost = toSignal(this.form.controls.energyCost.valueChanges, {
+    initialValue: this.form.controls.energyCost.value,
+  });
+  protected readonly creditScale = computed(() => isRestKind(this.selectedKind()));
 
   protected readonly groups = computed<ActivityGroup[]>(() =>
     PACING_KIND_OPTIONS.map((option) => ({
@@ -122,16 +131,6 @@ export class PacingAktivitaeten {
   protected closeForm(): void {
     this.adding.set(false);
     this.editingId.set(null);
-  }
-
-  protected colorOf(value: number): string {
-    return isRestKind(this.form.controls.kind.value) ? creditColor(value) : difficultyColor(value);
-  }
-
-  protected contrastOf(value: number): string {
-    return isRestKind(this.form.controls.kind.value)
-      ? creditContrast(value)
-      : difficultyContrast(value);
   }
 
   protected selectCost(value: number): void {
